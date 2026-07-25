@@ -115,14 +115,6 @@ export const DB = {
   },
 
   _syncToServer(db) {
-    if (supabaseClient) {
-      supabaseClient.from('app_state')
-        .upsert({ id: 1, data: db })
-        .then(({ error }) => {
-          if (error) console.error('Supabase sync save error:', error);
-        });
-    }
-
     const origin = window.location.origin;
     if (!origin.startsWith('file:')) {
       fetch(`${origin}/api/db/save`, {
@@ -134,24 +126,6 @@ export const DB = {
   },
 
   async syncWithServer(onSyncComplete = null) {
-    if (supabaseClient) {
-      try {
-        const { data, error } = await supabaseClient.from('app_state').select('data').eq('id', 1).single();
-        if (!error && data && data.data) {
-          const serverDb = data.data;
-          const localStr = localStorage.getItem(DB_KEY);
-          const serverStr = JSON.stringify(serverDb);
-          if (localStr !== serverStr) {
-            localStorage.setItem(DB_KEY, serverStr);
-            if (onSyncComplete) onSyncComplete(serverDb);
-            return true;
-          }
-        }
-      } catch (e) {
-        console.warn('Supabase fetch failed, trying local server:', e);
-      }
-    }
-
     const origin = window.location.origin;
     if (origin.startsWith('file:')) return false;
     try {
