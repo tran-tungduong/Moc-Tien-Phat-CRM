@@ -1,0 +1,16 @@
+{
+  "short_name": "Mộc Tiên Phát",
+  "name": "Mộc Tiên Phát - Báo cáo nội thất",
+  "icons": [
+    {
+      "src": "https://cdn-icons-png.flaticon.com/512/8215/8215539.png",
+      "type": "image/png",
+      "sizes": "512x512"
+    }
+  ],
+  "start_url": "./index.html",
+  "background_color": "#121212",
+  "theme_color": "#C5A880",
+  "display": "standalone",
+  "orientation": "portrait"
+}

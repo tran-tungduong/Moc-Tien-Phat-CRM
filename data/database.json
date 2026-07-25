@@ -1,0 +1,203 @@
+{
+  "users": [
+    {
+      "id": "usr_luan",
+      "username": "admin",
+      "password": "123",
+      "name": "Tôn Thất Uyên Luận",
+      "role": "manager",
+      "avatar": "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100&auto=format&fit=crop&q=60"
+    },
+    {
+      "id": "usr_hai",
+      "username": "hai.ta",
+      "password": "123",
+      "name": "Tạ Quốc Hải",
+      "role": "sales",
+      "avatar": "https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?w=100&auto=format&fit=crop&q=60"
+    },
+    {
+      "id": "usr_duong",
+      "username": "duong.tran",
+      "password": "123",
+      "name": "Trần Tùng Dương",
+      "role": "marketing",
+      "avatar": "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100&auto=format&fit=crop&q=60"
+    },
+    {
+      "id": "usr_ketoan",
+      "username": "ketoan",
+      "password": "123",
+      "name": "Lê Thị Thu",
+      "role": "accountant",
+      "avatar": "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=100&auto=format&fit=crop&q=60"
+    }
+  ],
+  "leads": [
+    {
+      "id": "lead_1784970765278_ovizf",
+      "name": "ông â",
+      "phone": "0452854546",
+      "source": "facebook",
+      "campaignId": "camp_1784969362985_nuyw4",
+      "stage": "lost",
+      "assignedTo": "usr_hai",
+      "budget": 0,
+      "note": "",
+      "address": "",
+      "interestedIn": "Bếp dưới",
+      "nextFollowUp": "",
+      "createdAt": "2026-07-25T09:12:45.278Z",
+      "updatedAt": "2026-07-25T09:12:58.757Z",
+      "history": [
+        {
+          "timestamp": "2026-07-25T09:12:45.278Z",
+          "action": "Tạo lead mới",
+          "user": "Tạ Quốc Hải"
+        },
+        {
+          "timestamp": "2026-07-25T09:12:51.597Z",
+          "action": "Chuyển giai đoạn → Khảo Sát Thực Địa",
+          "user": "Tạ Quốc Hải"
+        },
+        {
+          "timestamp": "2026-07-25T09:12:53.637Z",
+          "action": "Chuyển giai đoạn → Thiết Kế Sơ Bộ",
+          "user": "Tạ Quốc Hải"
+        },
+        {
+          "timestamp": "2026-07-25T09:12:58.757Z",
+          "action": "Chuyển giai đoạn → Thất Bại (Fail) ❌",
+          "user": "Tạ Quốc Hải"
+        }
+      ],
+      "surveyBy": "Nhật Long",
+      "surveyDate": "",
+      "surveyNote": "",
+      "failReason": "Vượt ngân sách dự kiến của khách",
+      "failedAtStage": "design_draft"
+    },
+    {
+      "id": "lead_1784969420567_8y35t",
+      "name": "Ahihi",
+      "phone": "0928312392",
+      "source": "facebook",
+      "campaignId": "camp_1784969362985_nuyw4",
+      "stage": "won",
+      "assignedTo": "usr_hai",
+      "budget": 0,
+      "note": "",
+      "address": "",
+      "interestedIn": "Bếp dưới module",
+      "nextFollowUp": "",
+      "createdAt": "2026-07-25T08:50:20.567Z",
+      "updatedAt": "2026-07-25T09:12:26.218Z",
+      "history": [
+        {
+          "timestamp": "2026-07-25T08:50:20.567Z",
+          "action": "Tạo lead mới",
+          "user": "Trần Tùng Dương"
+        },
+        {
+          "timestamp": "2026-07-25T09:08:00.424Z",
+          "action": "Đặt lịch hẹn: Gặp tư vấn: Ahihi",
+          "user": "Tạ Quốc Hải"
+        },
+        {
+          "timestamp": "2026-07-25T09:11:11.059Z",
+          "action": "Chuyển giai đoạn → Khảo Sát Thực Địa",
+          "user": "Tạ Quốc Hải"
+        },
+        {
+          "timestamp": "2026-07-25T09:11:33.956Z",
+          "action": "Hoàn thành lịch hẹn: Gặp tư vấn: Ahihi",
+          "user": "Tạ Quốc Hải"
+        },
+        {
+          "timestamp": "2026-07-25T09:11:37.617Z",
+          "action": "Chuyển giai đoạn → Thiết Kế Sơ Bộ",
+          "user": "Tạ Quốc Hải"
+        },
+        {
+          "timestamp": "2026-07-25T09:11:54.756Z",
+          "action": "Chuyển giai đoạn → Gửi Báo Giá Sơ Bộ",
+          "user": "Tạ Quốc Hải"
+        },
+        {
+          "timestamp": "2026-07-25T09:12:03.376Z",
+          "action": "Chuyển giai đoạn → Sửa TK & Báo Giá Lại",
+          "user": "Tạ Quốc Hải"
+        },
+        {
+          "timestamp": "2026-07-25T09:12:18.496Z",
+          "action": "🔄 Sửa thiết kế sơ bộ & Báo giá lần 1: giá còn cao\n",
+          "user": "Tạ Quốc Hải"
+        },
+        {
+          "timestamp": "2026-07-25T09:12:26.218Z",
+          "action": "Chuyển giai đoạn → Chốt Hợp Đồng ✅",
+          "user": "Tạ Quốc Hải"
+        }
+      ],
+      "surveyBy": "Hải",
+      "surveyDate": "",
+      "surveyNote": "",
+      "revisions": [
+        {
+          "revNum": 1,
+          "date": "2026-07-25T09:12:18.496Z",
+          "note": "giá còn cao\n",
+          "quoteAmount": 0,
+          "user": "Tạ Quốc Hải"
+        }
+      ]
+    }
+  ],
+  "contracts": [],
+  "campaigns": [
+    {
+      "id": "camp_1784969362985_nuyw4",
+      "name": "Bếp Module",
+      "platform": "facebook",
+      "startDate": "2026-07-25",
+      "endDate": "2026-07-31",
+      "budget": 1000000,
+      "spent": 50000,
+      "leadsGenerated": 0,
+      "status": "active",
+      "assignedTo": "usr_duong",
+      "note": "",
+      "createdAt": "2026-07-25T08:49:22.985Z",
+      "dailyLogs": [
+        {
+          "id": "log_1784969382955_svfj",
+          "date": "2026-07-25",
+          "amount": 50000,
+          "note": "chi phí ads fb hôm nay",
+          "createdByName": "Trần Tùng Dương",
+          "createdAt": "2026-07-25T08:49:42.955Z"
+        }
+      ]
+    }
+  ],
+  "appointments": [
+    {
+      "id": "apt_1784970480424_vkd36",
+      "leadId": "lead_1784969420567_8y35t",
+      "leadName": "Ahihi",
+      "title": "Gặp tư vấn: Ahihi",
+      "datetime": "2026-07-26T09:00",
+      "assignedTo": "usr_hai",
+      "createdBy": "usr_hai",
+      "status": "done",
+      "note": "",
+      "createdAt": "2026-07-25T09:08:00.424Z",
+      "completedAt": "2026-07-25T09:11:33.956Z",
+      "completedBy": "usr_hai"
+    }
+  ],
+  "portfolio": [],
+  "approvals": [],
+  "notifications": [],
+  "systemLogs": []
+}
