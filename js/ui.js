@@ -2023,34 +2023,64 @@ export const UI = {
     document.getElementById('revision-form')?.addEventListener('submit', (e) => {
       e.preventDefault();
       try {
-        const submitBtn = e.target.querySelector('button[type="submit"]');
-        if (submitBtn && submitBtn.disabled) return;
-        if (submitBtn) submitBtn.disabled = true;
-
         const noteVal = document.getElementById('rf-note')?.value?.trim() || '';
         if (!noteVal) {
           Toast.error('Vui lòng nhập nội dung chỉnh sửa!');
-          if (submitBtn) submitBtn.disabled = false;
           return;
         }
 
         const rawQuote = parseInt((quoteInput?.value || '').replace(/\D/g, ''), 10) || 0;
 
-        DB.addLeadRevision(lead.id, {
-          note: noteVal,
-          quoteAmount: rawQuote
-        }, user.id);
+        // Confirmation Modal for Lead Revision
+        const confirmHtml = `
+          <div style="display:flex; flex-direction:column; gap:12px; text-align:center; padding:10px 0;">
+            <div style="font-size:2.2rem; color:#EC4899;">
+              <i class="fas fa-sync-alt"></i>
+            </div>
+            <div style="font-size:0.95rem; font-weight:700; color:var(--text-primary);">
+              Xác Nhận Sửa Thiết Kế Lần ${nextRevNum}?
+            </div>
+            <div style="font-size:0.78rem; color:var(--text-secondary); background:rgba(255,255,255,0.03); border-radius:10px; padding:10px; border:1px solid var(--border-color); text-align:left;">
+              <div>• Khách hàng: <strong>${lead.name}</strong></div>
+              <div>• Nội dung: <strong>${noteVal}</strong></div>
+              ${rawQuote ? `<div>• Báo giá mới: <strong style="color:#10B981;">${rawQuote.toLocaleString('vi-VN')} VNĐ</strong></div>` : ''}
+            </div>
+            <div style="display:flex; gap:10px; margin-top:6px;">
+              <button id="btn-cancel-rev-confirm" type="button" style="flex:1; background:rgba(255,255,255,0.05); border:1px solid var(--border-color); color:var(--text-secondary); padding:9px; border-radius:8px; font-weight:600; cursor:pointer;">Hủy Bỏ</button>
+              <button id="btn-submit-rev-confirm" type="button" style="flex:1; background:#EC4899; color:#fff; border:none; padding:9px; border-radius:8px; font-weight:700; cursor:pointer;">Xác Nhận & Lùi Về</button>
+            </div>
+          </div>
+        `;
 
-        Toast.success(`Đã lưu sửa thiết kế & báo giá lại Lần ${nextRevNum}!`);
-        modal.close();
-        if (onDone) onDone();
+        const confirmModal = Modal.create(`Xác Nhận Sửa Lần ${nextRevNum}`, confirmHtml);
 
-        setTimeout(() => {
-          this.openLeadDrawer(lead.id, user);
-        }, 120);
+        document.getElementById('btn-cancel-rev-confirm')?.addEventListener('click', () => {
+          confirmModal.close();
+        });
+
+        document.getElementById('btn-submit-rev-confirm')?.addEventListener('click', (ev) => {
+          const confirmBtn = ev.currentTarget;
+          if (confirmBtn.disabled) return;
+          confirmBtn.disabled = true;
+
+          DB.addLeadRevision(lead.id, {
+            note: noteVal,
+            quoteAmount: rawQuote
+          }, user.id);
+
+          Toast.success(`Đã lưu sửa thiết kế Lần ${nextRevNum}!`);
+          confirmModal.close();
+          modal.close();
+          if (onDone) onDone();
+
+          this.renderLeads(user);
+          setTimeout(() => {
+            this.openLeadDrawer(lead.id, user);
+          }, 100);
+        });
       } catch (err) {
-        console.error('Revision submit error:', err);
-        Toast.error('Có lỗi xảy ra khi lưu!');
+        console.error('Revision confirm error:', err);
+        Toast.error('Có lỗi xảy ra khi xác nhận!');
       }
     });
   },
