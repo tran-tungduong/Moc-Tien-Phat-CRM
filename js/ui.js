@@ -2005,7 +2005,10 @@ export const UI = {
           <input type="text" inputmode="numeric" id="rf-quote" class="form-input" placeholder="Ví dụ: 120.000.000">
           <div id="rf-quote-hint" style="font-size:0.72rem; color:var(--primary); margin-top:4px; font-weight:600; min-height:16px;"></div>
         </div>
-        <button type="submit" class="btn-primary" style="background:#EC4899; border-color:#EC4899;">Tiếp Tục ➔ Xác Nhận Lần ${nextRevNum}</button>
+        <div style="display:flex; gap:10px; margin-top:4px;">
+          <button type="button" id="btn-cancel-revision" style="flex:1; background:rgba(255,255,255,0.05); border:1px solid var(--border-color); color:var(--text-secondary); padding:9px; border-radius:8px; font-weight:600; cursor:pointer;">Hủy Bỏ</button>
+          <button type="submit" id="btn-submit-revision" class="btn-primary" style="flex:1.2; background:#EC4899; border-color:#EC4899; font-weight:700;"><i class="fas fa-check"></i> Xác Nhận & Lùi Về</button>
+        </div>
       </form>
     `;
     const modal = Modal.create(`Sửa Thiết Kế Lần ${nextRevNum} - ${lead.name}`, html);
@@ -2020,65 +2023,37 @@ export const UI = {
       if (quoteHint) quoteHint.textContent = `✨ ${num.toLocaleString('vi-VN')} VNĐ`;
     });
 
+    document.getElementById('btn-cancel-revision')?.addEventListener('click', () => {
+      modal.close();
+      if (onDone) onDone();
+      this.openLeadDrawer(lead.id, user);
+    });
+
     document.getElementById('revision-form')?.addEventListener('submit', (e) => {
       e.preventDefault();
+      const submitBtn = document.getElementById('btn-submit-revision');
+      if (submitBtn && submitBtn.disabled) return;
+      if (submitBtn) submitBtn.disabled = true;
+
       const noteVal = document.getElementById('rf-note')?.value?.trim() || '';
       if (!noteVal) {
         Toast.error('Vui lòng nhập nội dung chỉnh sửa!');
+        if (submitBtn) submitBtn.disabled = false;
         return;
       }
 
       const rawQuote = parseInt((quoteInput?.value || '').replace(/\D/g, ''), 10) || 0;
 
-      // Swap modal body to Confirmation View inside the SAME modal element
-      const drawerBody = modal.element.querySelector('.drawer-body');
-      if (!drawerBody) return;
+      DB.addLeadRevision(lead.id, {
+        note: noteVal,
+        quoteAmount: rawQuote
+      }, user.id);
 
-      drawerBody.innerHTML = `
-        <div style="display:flex; flex-direction:column; gap:12px; text-align:center; padding:10px 0;">
-          <div style="font-size:2.2rem; color:#EC4899;">
-            <i class="fas fa-sync-alt"></i>
-          </div>
-          <div style="font-size:0.95rem; font-weight:700; color:var(--text-primary);">
-            Xác Nhận Sửa Thiết Kế Lần ${nextRevNum}?
-          </div>
-          <div style="font-size:0.78rem; color:var(--text-secondary); background:rgba(255,255,255,0.03); border-radius:10px; padding:10px; border:1px solid var(--border-color); text-align:left;">
-            <div>• Khách hàng: <strong>${lead.name}</strong></div>
-            <div>• Nội dung: <strong>${noteVal}</strong></div>
-            ${rawQuote ? `<div>• Báo giá mới: <strong style="color:#10B981;">${rawQuote.toLocaleString('vi-VN')} VNĐ</strong></div>` : ''}
-          </div>
-          <div style="display:flex; gap:10px; margin-top:6px;">
-            <button id="btn-cancel-rev-confirm" type="button" style="flex:1; background:rgba(255,255,255,0.05); border:1px solid var(--border-color); color:var(--text-secondary); padding:9px; border-radius:8px; font-weight:600; cursor:pointer;">Quay Lại Nhập</button>
-            <button id="btn-submit-rev-confirm" type="button" style="flex:1; background:#EC4899; color:#fff; border:none; padding:9px; border-radius:8px; font-weight:700; cursor:pointer;">Xác Nhận & Lùi Về</button>
-          </div>
-        </div>
-      `;
-
-      document.getElementById('btn-cancel-rev-confirm')?.addEventListener('click', () => {
-        modal.close();
-        this.openRevisionModal(lead, user, onDone);
-      });
-
-      document.getElementById('btn-submit-rev-confirm')?.addEventListener('click', (ev) => {
-        const confirmBtn = ev.currentTarget;
-        if (confirmBtn.disabled) return;
-        confirmBtn.disabled = true;
-
-        DB.addLeadRevision(lead.id, {
-          note: noteVal,
-          quoteAmount: rawQuote
-        }, user.id);
-
-        Toast.success(`Đã lưu sửa thiết kế Lần ${nextRevNum}!`);
-        
-        // Remove modal element directly from DOM synchronously
-        const existingModal = document.getElementById('app-modal');
-        if (existingModal) existingModal.remove();
-
-        if (onDone) onDone();
-        this.renderLeads(user);
-        this.openLeadDrawer(lead.id, user);
-      });
+      Toast.success(`Đã lưu sửa thiết kế Lần ${nextRevNum}!`);
+      modal.close();
+      if (onDone) onDone();
+      this.renderLeads(user);
+      this.openLeadDrawer(lead.id, user);
     });
   },
 
