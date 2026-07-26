@@ -806,7 +806,9 @@ export const DB = {
         note: revisionObj.note,
         user_name: revisionObj.user,
         date: revisionObj.date
-      }).catch(console.error);
+      }).then(({ error }) => {
+        if (error) console.error('Insert lead revision error:', error);
+      });
     }
     return lead;
   },
