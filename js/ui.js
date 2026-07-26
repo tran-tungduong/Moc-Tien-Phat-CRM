@@ -2030,17 +2030,10 @@ export const UI = {
     document.getElementById('revision-form')?.addEventListener('submit', (e) => {
       e.preventDefault();
       const submitBtn = document.getElementById('btn-submit-revision');
-
-      const noteVal = document.getElementById('rf-note')?.value?.trim() || '';
-      if (!noteVal) {
-        Toast.error('⚠️ Vui lòng nhập nội dung chỉnh sửa từ khách hàng!');
-        document.getElementById('rf-note')?.focus();
-        return;
-      }
-
       if (submitBtn && submitBtn.disabled) return;
       if (submitBtn) submitBtn.disabled = true;
 
+      const noteVal = document.getElementById('rf-note')?.value?.trim() || `Sửa thiết kế sơ bộ & báo giá lần ${nextRevNum}`;
       const rawQuote = parseInt((quoteInput?.value || '').replace(/\D/g, ''), 10) || 0;
 
       DB.addLeadRevision(lead.id, {
