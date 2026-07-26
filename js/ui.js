@@ -1998,7 +1998,7 @@ export const UI = {
         </div>
         <div>
           <label class="form-label">Nội dung chỉnh sửa từ khách hàng *</label>
-          <textarea id="rf-note" class="form-textarea" placeholder="Ví dụ: Khách muốn đổi tủ bếp sang chất liệu MDF An Cường, bỏ bớt bộ sofa để giảm giá thành..." required style="height:80px;"></textarea>
+          <textarea id="rf-note" class="form-textarea" placeholder="Ví dụ: Khách muốn đổi tủ bếp sang chất liệu MDF An Cường, bỏ bớt bộ sofa để giảm giá thành..." style="height:80px;"></textarea>
         </div>
         <div>
           <label class="form-label">Báo Giá Sơ Bộ Mới (VNĐ - Nếu có)</label>
@@ -2030,15 +2030,16 @@ export const UI = {
     document.getElementById('revision-form')?.addEventListener('submit', (e) => {
       e.preventDefault();
       const submitBtn = document.getElementById('btn-submit-revision');
-      if (submitBtn && submitBtn.disabled) return;
-      if (submitBtn) submitBtn.disabled = true;
 
       const noteVal = document.getElementById('rf-note')?.value?.trim() || '';
       if (!noteVal) {
-        Toast.error('Vui lòng nhập nội dung chỉnh sửa!');
-        if (submitBtn) submitBtn.disabled = false;
+        Toast.error('⚠️ Vui lòng nhập nội dung chỉnh sửa từ khách hàng!');
+        document.getElementById('rf-note')?.focus();
         return;
       }
+
+      if (submitBtn && submitBtn.disabled) return;
+      if (submitBtn) submitBtn.disabled = true;
 
       const rawQuote = parseInt((quoteInput?.value || '').replace(/\D/g, ''), 10) || 0;
 

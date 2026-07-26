@@ -1,5 +1,5 @@
-import { DB } from './db.js?v=20260726_v10';
-import { UI } from './ui.js?v=20260726_v10';
+import { DB } from './db.js?v=20260726_v11';
+import { UI } from './ui.js?v=20260726_v11';
 
 // ─── Application Bootstrap ────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
