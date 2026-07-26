@@ -352,8 +352,25 @@ export const DB = {
     }
   },
 
+  _addLeadHistory(lead, actionText, userName) {
+    if (!lead || !actionText) return null;
+    lead.history = lead.history || [];
+    const lastH = lead.history[lead.history.length - 1];
+    if (lastH && lastH.action === actionText && lastH.user === userName) {
+      const diffMs = Math.abs(new Date().getTime() - new Date(lastH.timestamp || 0).getTime());
+      if (diffMs < 3000) return null; // Prevent duplicate within 3 seconds
+    }
+    const newH = {
+      timestamp: new Date().toISOString(),
+      action: actionText,
+      user: userName || 'Nhân viên'
+    };
+    lead.history.push(newH);
+    return newH;
+  },
+
   // Row-level push helpers
-  async _pushLeadToSupabase(lead) {
+  async _pushLeadToSupabase(lead, newHistoryItem = null) {
     if (!supabaseClient || !lead) return;
     try {
       await supabaseClient.from('leads').upsert({
@@ -378,13 +395,12 @@ export const DB = {
         updated_at: lead.updatedAt
       });
 
-      if (lead.history && lead.history.length > 0) {
-        const latestHistory = lead.history[lead.history.length - 1];
+      if (newHistoryItem) {
         await supabaseClient.from('lead_history').insert({
           lead_id: lead.id,
-          action: latestHistory.action,
-          user_name: latestHistory.user,
-          timestamp: latestHistory.timestamp || new Date().toISOString()
+          action: newHistoryItem.action,
+          user_name: newHistoryItem.user,
+          timestamp: newHistoryItem.timestamp || new Date().toISOString()
         });
       }
     } catch (err) {
@@ -676,11 +692,13 @@ export const DB = {
       nextFollowUp: data.nextFollowUp || '',
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
-      history: [{ timestamp: new Date().toISOString(), action: 'Tạo lead mới', user: this.getUserById(userId)?.name || 'Nhân viên' }]
+      history: []
     };
+    const userName = this.getUserById(userId)?.name || 'Nhân viên';
+    const newH = this._addLeadHistory(lead, 'Tạo lead mới', userName);
     db.leads.unshift(lead);
     this.save(db);
-    this._pushLeadToSupabase(lead);
+    this._pushLeadToSupabase(lead, newH);
     return lead;
   },
 
@@ -690,17 +708,14 @@ export const DB = {
     if (idx === -1) return null;
     const oldStage = db.leads[idx].stage;
     db.leads[idx] = { ...db.leads[idx], ...data, updatedAt: new Date().toISOString() };
+    let newH = null;
     if (data.stage && data.stage !== oldStage) {
       const stageName = LEAD_STAGES.find(s => s.id === data.stage)?.label || data.stage;
-      db.leads[idx].history = db.leads[idx].history || [];
-      db.leads[idx].history.push({
-        timestamp: new Date().toISOString(),
-        action: `Chuyển giai đoạn → ${stageName}`,
-        user: this.getUserById(userId)?.name || 'Nhân viên'
-      });
+      const userName = this.getUserById(userId)?.name || 'Nhân viên';
+      newH = this._addLeadHistory(db.leads[idx], `Chuyển giai đoạn → ${stageName}`, userName);
     }
     this.save(db);
-    this._pushLeadToSupabase(db.leads[idx]);
+    this._pushLeadToSupabase(db.leads[idx], newH);
     return db.leads[idx];
   },
 
@@ -716,15 +731,11 @@ export const DB = {
     const lead = db.leads.find(l => l.id === leadId);
     if (!lead) return;
     lead.note = note;
-    lead.history = lead.history || [];
-    lead.history.push({
-      timestamp: new Date().toISOString(),
-      action: `📝 ${note}`,
-      user: this.getUserById(userId)?.name || 'Nhân viên'
-    });
+    const userName = this.getUserById(userId)?.name || 'Nhân viên';
+    const newH = this._addLeadHistory(lead, `📝 ${note}`, userName);
     lead.updatedAt = new Date().toISOString();
     this.save(db);
-    this._pushLeadToSupabase(lead);
+    this._pushLeadToSupabase(lead, newH);
   },
 
   addLeadRevision(leadId, data, userId) {
@@ -734,13 +745,14 @@ export const DB = {
 
     lead.revisions = lead.revisions || [];
     const revNum = (lead.revisions.length || 0) + 1;
+    const userName = this.getUserById(userId)?.name || 'Nhân viên';
 
     const revisionObj = {
       revNum,
       date: new Date().toISOString(),
       note: data.note || `Sửa thiết kế sơ bộ & báo giá lần ${revNum}`,
       quoteAmount: data.quoteAmount || 0,
-      user: this.getUserById(userId)?.name || 'Nhân viên'
+      user: userName
     };
 
     lead.revisions.push(revisionObj);
@@ -748,15 +760,10 @@ export const DB = {
     if (data.quoteAmount) lead.budget = data.quoteAmount;
     lead.updatedAt = new Date().toISOString();
 
-    lead.history = lead.history || [];
-    lead.history.push({
-      timestamp: new Date().toISOString(),
-      action: `🔄 Sửa thiết kế sơ bộ & Báo giá lần ${revNum}: ${data.note || ''}`,
-      user: this.getUserById(userId)?.name || 'Nhân viên'
-    });
+    const newH = this._addLeadHistory(lead, `🔄 Sửa thiết kế sơ bộ & Báo giá lần ${revNum}: ${data.note || ''}`, userName);
 
     this.save(db);
-    this._pushLeadToSupabase(lead);
+    this._pushLeadToSupabase(lead, newH);
     if (supabaseClient) {
       supabaseClient.from('lead_revisions').insert({
         lead_id: leadId,
@@ -816,13 +823,9 @@ export const DB = {
       const lead = db.leads.find(l => l.id === app.targetId);
       if (lead) {
         Object.assign(lead, app.newData, { updatedAt: new Date().toISOString() });
-        lead.history = lead.history || [];
-        lead.history.push({
-          timestamp: new Date().toISOString(),
-          action: `✅ Quản lý ${manager?.name || ''} đã duyệt thay đổi thông tin (${app.changeSummary})`,
-          user: manager?.name || 'Quản Lý'
-        });
-        this._pushLeadToSupabase(lead);
+        const managerName = manager?.name || 'Quản Lý';
+        const newH = this._addLeadHistory(lead, `✅ Quản lý ${managerName} đã duyệt thay đổi thông tin (${app.changeSummary})`, managerName);
+        this._pushLeadToSupabase(lead, newH);
       }
     }
 
@@ -846,13 +849,9 @@ export const DB = {
     if (app.type === 'lead_edit' && app.targetId) {
       const lead = db.leads.find(l => l.id === app.targetId);
       if (lead) {
-        lead.history = lead.history || [];
-        lead.history.push({
-          timestamp: new Date().toISOString(),
-          action: `❌ Quản lý ${manager?.name || ''} đã từ chối yêu cầu thay đổi thông tin${reason ? `: ${reason}` : ''}`,
-          user: manager?.name || 'Quản Lý'
-        });
-        this._pushLeadToSupabase(lead);
+        const managerName = manager?.name || 'Quản Lý';
+        const newH = this._addLeadHistory(lead, `❌ Quản lý ${managerName} đã từ chối yêu cầu thay đổi thông tin${reason ? `: ${reason}` : ''}`, managerName);
+        this._pushLeadToSupabase(lead, newH);
       }
     }
 
@@ -1141,14 +1140,10 @@ export const DB = {
     };
 
     if (targetLead) {
-      targetLead.history = targetLead.history || [];
       const userObj = this.getUserById(userId);
-      targetLead.history.push({
-        timestamp: new Date().toISOString(),
-        action: `Đặt lịch hẹn: ${apt.title}`,
-        user: userObj ? userObj.name : 'Nhân viên'
-      });
-      this._pushLeadToSupabase(targetLead);
+      const userName = userObj ? userObj.name : 'Nhân viên';
+      const newH = this._addLeadHistory(targetLead, `Đặt lịch hẹn: ${apt.title}`, userName);
+      this._pushLeadToSupabase(targetLead, newH);
     }
 
     db.appointments.unshift(apt);
@@ -1174,19 +1169,15 @@ export const DB = {
     if (oldApt.leadId) {
       const targetLead = db.leads.find(l => l.id === oldApt.leadId);
       if (targetLead) {
-        targetLead.history = targetLead.history || [];
         const userObj = userId ? this.getUserById(userId) : null;
+        const userName = userObj ? userObj.name : 'Nhân viên';
         let actionMsg = '';
         if (data.status === 'done') actionMsg = `Hoàn thành lịch hẹn: ${oldApt.title}`;
         else if (data.status === 'cancelled') actionMsg = `Hủy lịch hẹn: ${oldApt.title}`;
 
         if (actionMsg) {
-          targetLead.history.push({
-            timestamp: new Date().toISOString(),
-            action: actionMsg,
-            user: userObj ? userObj.name : 'Nhân viên'
-          });
-          this._pushLeadToSupabase(targetLead);
+          const newH = this._addLeadHistory(targetLead, actionMsg, userName);
+          this._pushLeadToSupabase(targetLead, newH);
         }
       }
     }

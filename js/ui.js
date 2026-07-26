@@ -1930,7 +1930,10 @@ export const UI = {
           confirmModal.close();
         });
 
-        document.getElementById('btn-confirm-stage-change')?.addEventListener('click', () => {
+        document.getElementById('btn-confirm-stage-change')?.addEventListener('click', (e) => {
+          const btn = e.currentTarget;
+          if (btn.disabled) return;
+          btn.disabled = true;
           DB.updateLead(leadId, { stage: targetStage }, user.id);
           Toast.success(`Đã chuyển giai đoạn sang ${targetStageObj?.label}`);
           confirmModal.close();
