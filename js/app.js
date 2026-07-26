@@ -18,6 +18,12 @@ document.addEventListener('DOMContentLoaded', () => {
     const user = DB.getCurrentUser();
     if (user) UI.refreshDashboard(user);
   });
+
+  // Enable Realtime WebSockets auto-update across all devices
+  DB.initRealtimeSubscription(() => {
+    const user = DB.getCurrentUser();
+    if (user) UI.refreshDashboard(user);
+  });
 });
 
 function checkSessionAndRoute() {

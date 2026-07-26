@@ -1,6 +1,6 @@
 // ═══════════════════════════════════════════════════════════
-//  MTP CRM & Marketing — Database Layer
-//  Schema: leads | contracts | campaigns | appointments | portfolio
+//  MTP CRM & Marketing — Database Layer (Relational & Supabase Multi-user)
+//  Schema: leads | contracts | campaigns | appointments | portfolio | approvals | notifications
 // ═══════════════════════════════════════════════════════════
 
 const DB_KEY = 'mtp_crm_db';
@@ -13,7 +13,7 @@ let supabaseClient = null;
 if (typeof supabase !== 'undefined' && SUPABASE_URL && SUPABASE_URL !== 'YOUR_SUPABASE_URL') {
   try {
     supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-    console.log('Supabase client initialized.');
+    console.log('Supabase client initialized (Relational mode).');
   } catch (err) {
     console.error('Failed to initialize Supabase:', err);
   }
@@ -77,6 +77,7 @@ export const DB = {
       if (!raw) return this._defaultDb();
       const db = JSON.parse(raw);
       // Ensure all collections exist
+      if (!db.users || db.users.length === 0) db.users = DEFAULT_USERS;
       if (!db.leads) db.leads = [];
       if (!db.contracts) db.contracts = [];
       if (!db.campaigns) db.campaigns = [];
@@ -111,39 +112,487 @@ export const DB = {
     } catch (err) {
       console.error('LocalStorage save error:', err);
     }
-    this._syncToServer(db);
   },
 
-  _syncToServer(db) {
-    const origin = window.location.origin;
-    if (!origin.startsWith('file:')) {
-      fetch(`${origin}/api/db/save`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(db)
-      }).catch(() => { });
-    }
-  },
-
+  // ── Supabase Relational Row-Level Sync Helpers ────────
   async syncWithServer(onSyncComplete = null) {
-    const origin = window.location.origin;
-    if (origin.startsWith('file:')) return false;
+    if (!supabaseClient) {
+      const origin = window.location.origin;
+      if (origin.startsWith('file:')) return false;
+      try {
+        const res = await fetch(`${origin}/api/db`);
+        if (!res.ok) return false;
+        const serverDb = await res.json();
+        if (!serverDb || serverDb.error) return false;
+        localStorage.setItem(DB_KEY, JSON.stringify(serverDb));
+        if (onSyncComplete) onSyncComplete(serverDb);
+        return true;
+      } catch {
+        return false;
+      }
+    }
+
     try {
-      const res = await fetch(`${origin}/api/db`);
-      if (!res.ok) return false;
-      const serverDb = await res.json();
-      if (!serverDb || serverDb.error) return false;
+      // Pull relational tables from Supabase in parallel
+      const [
+        { data: users },
+        { data: leads },
+        { data: leadHistory },
+        { data: leadRevisions },
+        { data: contracts },
+        { data: payments },
+        { data: campaigns },
+        { data: dailyLogs },
+        { data: appointments },
+        { data: portfolio },
+        { data: approvals },
+        { data: notifications }
+      ] = await Promise.all([
+        supabaseClient.from('users').select('*'),
+        supabaseClient.from('leads').select('*').order('created_at', { ascending: false }),
+        supabaseClient.from('lead_history').select('*').order('timestamp', { ascending: true }),
+        supabaseClient.from('lead_revisions').select('*').order('date', { ascending: true }),
+        supabaseClient.from('contracts').select('*').order('created_at', { ascending: false }),
+        supabaseClient.from('contract_payments').select('*').order('created_at', { ascending: true }),
+        supabaseClient.from('campaigns').select('*').order('created_at', { ascending: false }),
+        supabaseClient.from('campaign_daily_logs').select('*').order('date', { ascending: false }),
+        supabaseClient.from('appointments').select('*').order('datetime', { ascending: true }),
+        supabaseClient.from('portfolio').select('*').order('created_at', { ascending: false }),
+        supabaseClient.from('approvals').select('*').order('created_at', { ascending: false }),
+        supabaseClient.from('notifications').select('*').order('created_at', { ascending: false })
+      ]);
 
-      const localStr = localStorage.getItem(DB_KEY);
-      const serverStr = JSON.stringify(serverDb);
-      if (localStr === serverStr) return false;
+      const db = this.load();
 
-      localStorage.setItem(DB_KEY, serverStr);
-      if (onSyncComplete) onSyncComplete(serverDb);
+      if (users && users.length > 0) {
+        db.users = users.map(u => ({
+          id: u.id,
+          username: u.username,
+          password: u.password,
+          name: u.name,
+          role: u.role,
+          avatar: u.avatar
+        }));
+      }
+
+      if (leads) {
+        db.leads = leads.map(l => {
+          const history = (leadHistory || []).filter(h => h.lead_id === l.id).map(h => ({
+            timestamp: h.timestamp,
+            action: h.action,
+            user: h.user_name
+          }));
+          const revisions = (leadRevisions || []).filter(r => r.lead_id === l.id).map(r => ({
+            revNum: r.rev_num,
+            date: r.date,
+            note: r.note,
+            quoteAmount: r.quote_amount,
+            user: r.user_name
+          }));
+          return {
+            id: l.id,
+            name: l.name,
+            phone: l.phone || '',
+            source: l.source || 'other',
+            campaignId: l.campaign_id || '',
+            stage: l.stage || 'new',
+            assignedTo: l.assigned_to || '',
+            budget: Number(l.budget) || 0,
+            note: l.note || '',
+            address: l.address || '',
+            interestedIn: l.interested_in || '',
+            nextFollowUp: l.next_follow_up || '',
+            surveyBy: l.survey_by || '',
+            surveyDate: l.survey_date || '',
+            surveyNote: l.survey_note || '',
+            failReason: l.fail_reason || '',
+            failedAtStage: l.failed_at_stage || '',
+            createdAt: l.created_at,
+            updatedAt: l.updated_at,
+            history: history,
+            revisions: revisions
+          };
+        });
+      }
+
+      if (contracts) {
+        db.contracts = contracts.map(c => {
+          const cPayments = (payments || []).filter(p => p.contract_id === c.id).map(p => ({
+            id: p.id,
+            amount: Number(p.amount) || 0,
+            date: p.date,
+            method: p.method || 'cash',
+            collectorName: p.collector_name || '',
+            note: p.note || '',
+            proofImage: p.proof_image || '',
+            createdAt: p.created_at
+          }));
+          return {
+            id: c.id,
+            code: c.code,
+            leadId: c.lead_id || '',
+            customerName: c.customer_name || '',
+            phone: c.phone || '',
+            idCard: c.id_card || '',
+            address: c.address || '',
+            items: c.items || '',
+            repName: c.rep_name || '',
+            value: Number(c.value) || 0,
+            signedDate: c.signed_date || '',
+            expectedDelivery: c.expected_delivery || '',
+            stage: c.stage || 'signed',
+            assignedTo: c.assigned_to || '',
+            note: c.note || '',
+            milestones: c.milestones || [],
+            payments: cPayments,
+            createdAt: c.created_at
+          };
+        });
+      }
+
+      if (campaigns) {
+        db.campaigns = campaigns.map(c => {
+          const logs = (dailyLogs || []).filter(dl => dl.campaign_id === c.id).map(dl => ({
+            id: dl.id,
+            date: dl.date,
+            amount: Number(dl.amount) || 0,
+            note: dl.note || '',
+            createdByName: dl.created_by_name || 'Marketing',
+            createdAt: dl.created_at
+          }));
+          return {
+            id: c.id,
+            name: c.name,
+            platform: c.platform || 'facebook',
+            startDate: c.start_date || '',
+            endDate: c.end_date || '',
+            budget: Number(c.budget) || 0,
+            spent: Number(c.spent) || 0,
+            status: c.status || 'active',
+            assignedTo: c.assigned_to || '',
+            note: c.note || '',
+            dailyLogs: logs,
+            createdAt: c.created_at
+          };
+        });
+      }
+
+      if (appointments) {
+        db.appointments = appointments.map(a => ({
+          id: a.id,
+          leadId: a.lead_id || '',
+          leadName: a.lead_name || '',
+          title: a.title,
+          datetime: a.datetime,
+          assignedTo: a.assigned_to || '',
+          createdBy: a.created_by || '',
+          status: a.status || 'pending',
+          note: a.note || '',
+          completedAt: a.completed_at || '',
+          completedBy: a.completed_by || '',
+          createdAt: a.created_at
+        }));
+      }
+
+      if (portfolio) {
+        db.portfolio = portfolio.map(p => ({
+          id: p.id,
+          name: p.name,
+          category: p.category || 'other',
+          completedDate: p.completed_date || '',
+          photos: p.photos || [],
+          description: p.description || '',
+          highlight: p.highlight || false,
+          createdAt: p.created_at
+        }));
+      }
+
+      if (approvals) {
+        db.approvals = approvals.map(ap => ({
+          id: ap.id,
+          type: ap.type || 'lead_edit',
+          targetId: ap.target_id,
+          targetName: ap.target_name || '',
+          requesterId: ap.requester_id,
+          requesterName: ap.requester_name || '',
+          changeSummary: ap.change_summary || '',
+          oldData: ap.old_data || {},
+          newData: ap.new_data || {},
+          status: ap.status || 'pending',
+          rejectReason: ap.reject_reason || '',
+          handledBy: ap.handled_by || '',
+          handledAt: ap.handled_at || '',
+          createdAt: ap.created_at
+        }));
+      }
+
+      if (notifications) {
+        db.notifications = notifications.map(n => ({
+          id: n.id,
+          type: n.type,
+          contractId: n.contract_id || '',
+          contractCode: n.contract_code || '',
+          customerName: n.customer_name || '',
+          amount: Number(n.amount) || 0,
+          date: n.date || '',
+          note: n.note || '',
+          proofImage: n.proof_image || '',
+          collectorName: n.collector_name || '',
+          status: n.status || 'unread',
+          createdAt: n.created_at
+        }));
+      }
+
+      this.save(db);
+      if (onSyncComplete) onSyncComplete(db);
       return true;
-    } catch {
+    } catch (err) {
+      console.error('Supabase sync error:', err);
       return false;
     }
+  },
+
+  // Row-level push helpers
+  async _pushLeadToSupabase(lead) {
+    if (!supabaseClient || !lead) return;
+    try {
+      await supabaseClient.from('leads').upsert({
+        id: lead.id,
+        name: lead.name,
+        phone: lead.phone,
+        source: lead.source,
+        campaign_id: lead.campaignId || null,
+        stage: lead.stage,
+        assigned_to: lead.assignedTo || null,
+        budget: lead.budget,
+        note: lead.note,
+        address: lead.address,
+        interested_in: lead.interestedIn,
+        next_follow_up: lead.nextFollowUp || null,
+        survey_by: lead.surveyBy || null,
+        survey_date: lead.surveyDate || null,
+        survey_note: lead.surveyNote || null,
+        fail_reason: lead.failReason || null,
+        failed_at_stage: lead.failedAtStage || null,
+        created_at: lead.createdAt,
+        updated_at: lead.updatedAt
+      });
+
+      if (lead.history && lead.history.length > 0) {
+        const latestHistory = lead.history[lead.history.length - 1];
+        await supabaseClient.from('lead_history').insert({
+          lead_id: lead.id,
+          action: latestHistory.action,
+          user_name: latestHistory.user,
+          timestamp: latestHistory.timestamp || new Date().toISOString()
+        });
+      }
+    } catch (err) {
+      console.error('Push lead error:', err);
+    }
+  },
+
+  async _deleteLeadFromSupabase(id) {
+    if (!supabaseClient || !id) return;
+    try {
+      await supabaseClient.from('leads').delete().eq('id', id);
+    } catch (err) { console.error('Delete lead error:', err); }
+  },
+
+  async _pushContractToSupabase(contract) {
+    if (!supabaseClient || !contract) return;
+    try {
+      await supabaseClient.from('contracts').upsert({
+        id: contract.id,
+        code: contract.code,
+        lead_id: contract.leadId || null,
+        customer_name: contract.customerName,
+        phone: contract.phone,
+        id_card: contract.idCard,
+        address: contract.address,
+        items: contract.items,
+        rep_name: contract.repName,
+        value: contract.value,
+        signed_date: contract.signedDate || null,
+        expected_delivery: contract.expectedDelivery || null,
+        stage: contract.stage,
+        assigned_to: contract.assignedTo || null,
+        note: contract.note,
+        milestones: contract.milestones || [],
+        created_at: contract.createdAt
+      });
+    } catch (err) { console.error('Push contract error:', err); }
+  },
+
+  async _deleteContractFromSupabase(id) {
+    if (!supabaseClient || !id) return;
+    try {
+      await supabaseClient.from('contracts').delete().eq('id', id);
+    } catch (err) { console.error('Delete contract error:', err); }
+  },
+
+  async _pushPaymentToSupabase(payment, contractId) {
+    if (!supabaseClient || !payment) return;
+    try {
+      await supabaseClient.from('contract_payments').upsert({
+        id: payment.id,
+        contract_id: contractId,
+        amount: payment.amount,
+        date: payment.date || null,
+        method: payment.method || 'cash',
+        collector_name: payment.collectorName,
+        note: payment.note,
+        proof_image: payment.proofImage,
+        created_at: payment.createdAt
+      });
+    } catch (err) { console.error('Push payment error:', err); }
+  },
+
+  async _deletePaymentFromSupabase(paymentId) {
+    if (!supabaseClient || !paymentId) return;
+    try {
+      await supabaseClient.from('contract_payments').delete().eq('id', paymentId);
+    } catch (err) { console.error('Delete payment error:', err); }
+  },
+
+  async _pushCampaignToSupabase(campaign) {
+    if (!supabaseClient || !campaign) return;
+    try {
+      await supabaseClient.from('campaigns').upsert({
+        id: campaign.id,
+        name: campaign.name,
+        platform: campaign.platform,
+        start_date: campaign.startDate || null,
+        end_date: campaign.endDate || null,
+        budget: campaign.budget,
+        spent: campaign.spent,
+        status: campaign.status,
+        assigned_to: campaign.assignedTo || null,
+        note: campaign.note,
+        created_at: campaign.createdAt
+      });
+    } catch (err) { console.error('Push campaign error:', err); }
+  },
+
+  async _deleteCampaignFromSupabase(id) {
+    if (!supabaseClient || !id) return;
+    try {
+      await supabaseClient.from('campaigns').delete().eq('id', id);
+    } catch (err) { console.error('Delete campaign error:', err); }
+  },
+
+  async _pushCampaignLogToSupabase(log, campaignId) {
+    if (!supabaseClient || !log) return;
+    try {
+      await supabaseClient.from('campaign_daily_logs').upsert({
+        id: log.id,
+        campaign_id: campaignId,
+        date: log.date,
+        amount: log.amount,
+        note: log.note,
+        created_by_name: log.createdByName,
+        created_at: log.createdAt
+      });
+    } catch (err) { console.error('Push campaign log error:', err); }
+  },
+
+  async _deleteCampaignLogFromSupabase(logId) {
+    if (!supabaseClient || !logId) return;
+    try {
+      await supabaseClient.from('campaign_daily_logs').delete().eq('id', logId);
+    } catch (err) { console.error('Delete campaign log error:', err); }
+  },
+
+  async _pushAppointmentToSupabase(apt) {
+    if (!supabaseClient || !apt) return;
+    try {
+      await supabaseClient.from('appointments').upsert({
+        id: apt.id,
+        lead_id: apt.leadId || null,
+        lead_name: apt.leadName,
+        title: apt.title,
+        datetime: apt.datetime,
+        assigned_to: apt.assignedTo || null,
+        created_by: apt.createdBy || null,
+        status: apt.status,
+        note: apt.note,
+        completed_at: apt.completedAt || null,
+        completed_by: apt.completedBy || null,
+        created_at: apt.createdAt
+      });
+    } catch (err) { console.error('Push appointment error:', err); }
+  },
+
+  async _deleteAppointmentFromSupabase(id) {
+    if (!supabaseClient || !id) return;
+    try {
+      await supabaseClient.from('appointments').delete().eq('id', id);
+    } catch (err) { console.error('Delete appointment error:', err); }
+  },
+
+  async _pushPortfolioToSupabase(item) {
+    if (!supabaseClient || !item) return;
+    try {
+      await supabaseClient.from('portfolio').upsert({
+        id: item.id,
+        name: item.name,
+        category: item.category,
+        completed_date: item.completedDate || null,
+        photos: item.photos || [],
+        description: item.description,
+        highlight: item.highlight || false,
+        created_at: item.createdAt
+      });
+    } catch (err) { console.error('Push portfolio error:', err); }
+  },
+
+  async _deletePortfolioFromSupabase(id) {
+    if (!supabaseClient || !id) return;
+    try {
+      await supabaseClient.from('portfolio').delete().eq('id', id);
+    } catch (err) { console.error('Delete portfolio error:', err); }
+  },
+
+  async _pushApprovalToSupabase(app) {
+    if (!supabaseClient || !app) return;
+    try {
+      await supabaseClient.from('approvals').upsert({
+        id: app.id,
+        type: app.type,
+        target_id: app.targetId,
+        target_name: app.targetName,
+        requester_id: app.requesterId,
+        requester_name: app.requesterName,
+        change_summary: app.changeSummary,
+        old_data: app.oldData || {},
+        new_data: app.newData || {},
+        status: app.status,
+        reject_reason: app.rejectReason || null,
+        handled_by: app.handledBy || null,
+        handled_at: app.handledAt || null,
+        created_at: app.createdAt
+      });
+    } catch (err) { console.error('Push approval error:', err); }
+  },
+
+  async _pushNotificationToSupabase(notif) {
+    if (!supabaseClient || !notif) return;
+    try {
+      await supabaseClient.from('notifications').upsert({
+        id: notif.id,
+        type: notif.type,
+        contract_id: notif.contractId || null,
+        contract_code: notif.contractCode,
+        customer_name: notif.customerName,
+        amount: notif.amount,
+        date: notif.date || null,
+        note: notif.note,
+        proof_image: notif.proofImage,
+        collector_name: notif.collectorName,
+        status: notif.status,
+        created_at: notif.createdAt
+      });
+    } catch (err) { console.error('Push notification error:', err); }
   },
 
   // ── Auth ──────────────────────────────────────────────
@@ -231,6 +680,7 @@ export const DB = {
     };
     db.leads.unshift(lead);
     this.save(db);
+    this._pushLeadToSupabase(lead);
     return lead;
   },
 
@@ -250,6 +700,7 @@ export const DB = {
       });
     }
     this.save(db);
+    this._pushLeadToSupabase(db.leads[idx]);
     return db.leads[idx];
   },
 
@@ -257,6 +708,7 @@ export const DB = {
     const db = this.load();
     db.leads = db.leads.filter(l => l.id !== id);
     this.save(db);
+    this._deleteLeadFromSupabase(id);
   },
 
   addLeadNote(leadId, note, userId) {
@@ -272,6 +724,7 @@ export const DB = {
     });
     lead.updatedAt = new Date().toISOString();
     this.save(db);
+    this._pushLeadToSupabase(lead);
   },
 
   addLeadRevision(leadId, data, userId) {
@@ -303,6 +756,17 @@ export const DB = {
     });
 
     this.save(db);
+    this._pushLeadToSupabase(lead);
+    if (supabaseClient) {
+      supabaseClient.from('lead_revisions').insert({
+        lead_id: leadId,
+        rev_num: revNum,
+        quote_amount: data.quoteAmount || 0,
+        note: data.note || '',
+        user_name: revisionObj.user,
+        date: revisionObj.date
+      }).catch(console.error);
+    }
     return lead;
   },
 
@@ -333,6 +797,7 @@ export const DB = {
     };
     db.approvals.unshift(app);
     this.save(db);
+    this._pushApprovalToSupabase(app);
     return app;
   },
 
@@ -357,10 +822,12 @@ export const DB = {
           action: `✅ Quản lý ${manager?.name || ''} đã duyệt thay đổi thông tin (${app.changeSummary})`,
           user: manager?.name || 'Quản Lý'
         });
+        this._pushLeadToSupabase(lead);
       }
     }
 
     this.save(db);
+    this._pushApprovalToSupabase(app);
     return true;
   },
 
@@ -385,10 +852,12 @@ export const DB = {
           action: `❌ Quản lý ${manager?.name || ''} đã từ chối yêu cầu thay đổi thông tin${reason ? `: ${reason}` : ''}`,
           user: manager?.name || 'Quản Lý'
         });
+        this._pushLeadToSupabase(lead);
       }
     }
 
     this.save(db);
+    this._pushApprovalToSupabase(app);
     return true;
   },
 
@@ -428,6 +897,7 @@ export const DB = {
     };
     db.contracts.unshift(contract);
     this.save(db);
+    this._pushContractToSupabase(contract);
     return contract;
   },
 
@@ -437,6 +907,7 @@ export const DB = {
     if (idx === -1) return null;
     db.contracts[idx] = { ...db.contracts[idx], ...data };
     this.save(db);
+    this._pushContractToSupabase(db.contracts[idx]);
     return db.contracts[idx];
   },
 
@@ -444,6 +915,7 @@ export const DB = {
     const db = this.load();
     db.contracts = db.contracts.filter(c => c.id !== id);
     this.save(db);
+    this._deleteContractFromSupabase(id);
   },
 
   addPayment(contractId, payment, collectorUser = null) {
@@ -464,7 +936,7 @@ export const DB = {
     db.notifications = db.notifications || [];
     const collectorName = collectorUser ? collectorUser.name : (payment.collectorName || 'Nhân viên');
     const isManager = collectorUser && collectorUser.role === 'manager';
-    db.notifications.unshift({
+    const notif = {
       id: 'notif_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
       type: 'new_payment',
       contractId: contract.id,
@@ -477,9 +949,12 @@ export const DB = {
       collectorName: collectorName,
       status: isManager ? 'read' : 'unread',
       createdAt: new Date().toISOString()
-    });
+    };
+    db.notifications.unshift(notif);
 
     this.save(db);
+    this._pushPaymentToSupabase(newPayment, contractId);
+    this._pushNotificationToSupabase(notif);
     return newPayment;
   },
 
@@ -489,6 +964,7 @@ export const DB = {
     if (!contract) return;
     contract.payments = (contract.payments || []).filter(p => p.id !== paymentId);
     this.save(db);
+    this._deletePaymentFromSupabase(paymentId);
   },
 
   // ── Notifications ──────────────────────────────────────
@@ -513,13 +989,17 @@ export const DB = {
     if (notif) {
       notif.status = 'read';
       this.save(db);
+      this._pushNotificationToSupabase(notif);
     }
   },
 
   markAllNotificationsRead() {
     const db = this.load();
     db.notifications = db.notifications || [];
-    db.notifications.forEach(n => n.status = 'read');
+    db.notifications.forEach(n => {
+      n.status = 'read';
+      this._pushNotificationToSupabase(n);
+    });
     this.save(db);
   },
 
@@ -562,6 +1042,7 @@ export const DB = {
     };
     db.campaigns.unshift(campaign);
     this.save(db);
+    this._pushCampaignToSupabase(campaign);
     return campaign;
   },
 
@@ -571,6 +1052,7 @@ export const DB = {
     if (idx === -1) return null;
     db.campaigns[idx] = { ...db.campaigns[idx], ...data };
     this.save(db);
+    this._pushCampaignToSupabase(db.campaigns[idx]);
     return db.campaigns[idx];
   },
 
@@ -578,6 +1060,7 @@ export const DB = {
     const db = this.load();
     db.campaigns = db.campaigns.filter(c => c.id !== id);
     this.save(db);
+    this._deleteCampaignFromSupabase(id);
   },
 
   addCampaignDailyLog(campaignId, data, userId) {
@@ -585,16 +1068,19 @@ export const DB = {
     const c = db.campaigns.find(x => x.id === campaignId);
     if (!c) return null;
     c.dailyLogs = c.dailyLogs || [];
-    c.dailyLogs.unshift({
+    const newLog = {
       id: 'log_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4),
       date: data.date || new Date().toISOString().split('T')[0],
       amount: Number(data.amount) || 0,
       note: data.note || '',
       createdByName: this.getUserById(userId)?.name || 'Marketing',
       createdAt: new Date().toISOString()
-    });
+    };
+    c.dailyLogs.unshift(newLog);
     c.spent = c.dailyLogs.reduce((s, log) => s + (log.amount || 0), 0);
     this.save(db);
+    this._pushCampaignToSupabase(c);
+    this._pushCampaignLogToSupabase(newLog, campaignId);
     return c;
   },
 
@@ -605,6 +1091,8 @@ export const DB = {
     c.dailyLogs = c.dailyLogs.filter(l => l.id !== logId);
     c.spent = c.dailyLogs.reduce((s, log) => s + (log.amount || 0), 0);
     this.save(db);
+    this._pushCampaignToSupabase(c);
+    this._deleteCampaignLogFromSupabase(logId);
     return c;
   },
 
@@ -660,10 +1148,12 @@ export const DB = {
         action: `Đặt lịch hẹn: ${apt.title}`,
         user: userObj ? userObj.name : 'Nhân viên'
       });
+      this._pushLeadToSupabase(targetLead);
     }
 
     db.appointments.unshift(apt);
     this.save(db);
+    this._pushAppointmentToSupabase(apt);
     return apt;
   },
 
@@ -696,11 +1186,13 @@ export const DB = {
             action: actionMsg,
             user: userObj ? userObj.name : 'Nhân viên'
           });
+          this._pushLeadToSupabase(targetLead);
         }
       }
     }
 
     this.save(db);
+    this._pushAppointmentToSupabase(db.appointments[idx]);
     return db.appointments[idx];
   },
 
@@ -708,6 +1200,7 @@ export const DB = {
     const db = this.load();
     db.appointments = db.appointments.filter(a => a.id !== id);
     this.save(db);
+    this._deleteAppointmentFromSupabase(id);
   },
 
   // ── Portfolio ─────────────────────────────────────────
@@ -729,6 +1222,7 @@ export const DB = {
     };
     db.portfolio.unshift(item);
     this.save(db);
+    this._pushPortfolioToSupabase(item);
     return item;
   },
 
@@ -738,6 +1232,7 @@ export const DB = {
     if (idx === -1) return null;
     db.portfolio[idx] = { ...db.portfolio[idx], ...data };
     this.save(db);
+    this._pushPortfolioToSupabase(db.portfolio[idx]);
     return db.portfolio[idx];
   },
 
@@ -745,6 +1240,7 @@ export const DB = {
     const db = this.load();
     db.portfolio = db.portfolio.filter(p => p.id !== id);
     this.save(db);
+    this._deletePortfolioFromSupabase(id);
   },
 
   // ── Analytics ────────────────────────────────────────
@@ -821,5 +1317,29 @@ export const DB = {
       leadsByStage,
       activeCampaigns: campaigns.filter(c => c.status === 'active').length
     };
+  },
+
+  // ── Supabase Realtime Subscription ──────────────────
+  _realtimeChannel: null,
+  initRealtimeSubscription(onDataChange = null) {
+    if (!supabaseClient) return;
+    try {
+      if (this._realtimeChannel) {
+        supabaseClient.removeChannel(this._realtimeChannel);
+      }
+      this._realtimeChannel = supabaseClient
+        .channel('mtp-crm-realtime')
+        .on('postgres_changes', { event: '*', schema: 'public' }, async (payload) => {
+          console.log('⚡ Realtime update received from Supabase:', payload.table, payload.eventType);
+          await this.syncWithServer();
+          if (onDataChange) onDataChange(payload);
+        })
+        .subscribe((status) => {
+          console.log('Supabase Realtime subscription status:', status);
+        });
+    } catch (err) {
+      console.error('Failed to initialize Supabase Realtime:', err);
+    }
   }
 };
+
