@@ -1555,7 +1555,7 @@ export const UI = {
     const assignee = DB.getUserById(l.assignedTo);
     const revCount = (l.revisions || []).length;
     const isMine = l.assignedTo === user.id;
-    const canEditLead = user.role === 'manager' || user.role === 'marketing' || (l.assignedTo && l.assignedTo === user.id);
+    const canEditLead = user.role === 'manager' || (l.assignedTo && l.assignedTo === user.id);
     const canDeleteLead = user.role === 'manager';
     const camp = l.campaignId ? DB.getCampaign(l.campaignId) : null;
 
@@ -1609,7 +1609,7 @@ export const UI = {
     const assignableUsers = DB.getUsers().filter(u => u.role === 'sales' || u.role === 'manager' || u.role === 'marketing');
     const nextRevNum = (lead.revisions || []).length + 1;
     const isAdmin = user.role === 'manager';
-    const canEditLead = isAdmin || user.role === 'marketing' || (lead.assignedTo && lead.assignedTo === user.id);
+    const canEditLead = isAdmin || (lead.assignedTo && lead.assignedTo === user.id);
     const canDeleteLead = isAdmin;
 
     const html = `
