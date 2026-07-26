@@ -176,7 +176,17 @@ export const DB = {
       }
 
       if (leads) {
+        const localDb = this.load();
         db.leads = leads.map(l => {
+          const localLead = localDb.leads.find(item => item.id === l.id);
+          const remoteTime = new Date(l.updated_at || 0).getTime();
+          const localTime = localLead ? new Date(localLead.updatedAt || 0).getTime() : 0;
+
+          if (localLead && localTime > remoteTime) {
+            this._pushLeadToSupabase(localLead);
+            return localLead;
+          }
+
           const history = (leadHistory || []).filter(h => h.lead_id === l.id).map(h => ({
             timestamp: h.timestamp,
             action: h.action,
@@ -208,10 +218,18 @@ export const DB = {
             failReason: l.fail_reason || '',
             failedAtStage: l.failed_at_stage || '',
             createdAt: l.created_at,
-            updatedAt: l.updated_at,
-            history: history,
+            updatedAt: l.updated_at || localLead?.updatedAt || new Date().toISOString(),
+            history: (history && history.length > 0) ? history : (localLead?.history || []),
             revisions: revisions
           };
+        });
+
+        // Retain any local leads not yet present in Supabase response
+        (localDb.leads || []).forEach(localL => {
+          if (!db.leads.some(remL => remL.id === localL.id)) {
+            db.leads.push(localL);
+            this._pushLeadToSupabase(localL);
+          }
         });
       }
 
@@ -707,13 +725,20 @@ export const DB = {
     const idx = db.leads.findIndex(l => l.id === id);
     if (idx === -1) return null;
     const oldStage = db.leads[idx].stage;
+    const oldAssignee = db.leads[idx].assignedTo;
     db.leads[idx] = { ...db.leads[idx], ...data, updatedAt: new Date().toISOString() };
     let newH = null;
+    const userName = this.getUserById(userId)?.name || 'Nhân viên';
+
     if (data.stage && data.stage !== oldStage) {
       const stageName = LEAD_STAGES.find(s => s.id === data.stage)?.label || data.stage;
-      const userName = this.getUserById(userId)?.name || 'Nhân viên';
       newH = this._addLeadHistory(db.leads[idx], `Chuyển giai đoạn → ${stageName}`, userName);
+    } else if (data.assignedTo !== undefined && data.assignedTo !== oldAssignee) {
+      const newAssignee = this.getUserById(data.assignedTo);
+      const actionText = newAssignee ? `Phân công phụ trách cho ${newAssignee.name}` : 'Đưa về danh sách chưa phân công';
+      newH = this._addLeadHistory(db.leads[idx], actionText, userName);
     }
+
     this.save(db);
     this._pushLeadToSupabase(db.leads[idx], newH);
     return db.leads[idx];
