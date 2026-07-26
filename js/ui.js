@@ -2007,7 +2007,7 @@ export const UI = {
         </div>
         <div style="display:flex; gap:10px; margin-top:4px;">
           <button type="button" id="btn-cancel-revision" style="flex:1; background:rgba(255,255,255,0.05); border:1px solid var(--border-color); color:var(--text-secondary); padding:9px; border-radius:8px; font-weight:600; cursor:pointer;">Hủy Bỏ</button>
-          <button type="submit" id="btn-submit-revision" class="btn-primary" style="flex:1.2; background:#EC4899; border-color:#EC4899; font-weight:700;"><i class="fas fa-check"></i> Xác Nhận & Lùi Về</button>
+          <button type="submit" id="btn-submit-revision" class="btn-primary" style="flex:1.2; background:#EC4899; border-color:#EC4899; font-weight:700;"><i class="fas fa-save"></i> Lưu Sửa Thiết Kế Lần ${nextRevNum}</button>
         </div>
       </form>
     `;
@@ -2024,12 +2024,7 @@ export const UI = {
     });
 
     document.getElementById('btn-cancel-revision')?.addEventListener('click', () => {
-      if (document.activeElement) document.activeElement.blur();
       modal.close();
-      if (onDone) onDone();
-      setTimeout(() => {
-        this.openLeadDrawer(lead.id, user);
-      }, 80);
     });
 
     document.getElementById('revision-form')?.addEventListener('submit', (e) => {
@@ -2052,15 +2047,10 @@ export const UI = {
         quoteAmount: rawQuote
       }, user.id);
 
-      Toast.success(`Đã lưu sửa thiết kế Lần ${nextRevNum}!`);
-      
-      if (document.activeElement) document.activeElement.blur();
+      Toast.success(`Đã lưu thành công sửa thiết kế Lần ${nextRevNum}!`);
       modal.close();
       if (onDone) onDone();
-
-      setTimeout(() => {
-        this.openLeadDrawer(lead.id, user);
-      }, 80);
+      this.renderLeads(user);
     });
   },
 
