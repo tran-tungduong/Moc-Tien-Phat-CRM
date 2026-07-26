@@ -2029,22 +2029,29 @@ export const UI = {
 
     document.getElementById('revision-form')?.addEventListener('submit', (e) => {
       e.preventDefault();
-      const submitBtn = document.getElementById('btn-submit-revision');
-      if (submitBtn && submitBtn.disabled) return;
-      if (submitBtn) submitBtn.disabled = true;
+      try {
+        const submitBtn = document.getElementById('btn-submit-revision');
+        if (submitBtn && submitBtn.disabled) return;
+        if (submitBtn) submitBtn.disabled = true;
 
-      const noteVal = document.getElementById('rf-note')?.value?.trim() || `Sửa thiết kế sơ bộ & báo giá lần ${nextRevNum}`;
-      const rawQuote = parseInt((quoteInput?.value || '').replace(/\D/g, ''), 10) || 0;
+        const noteVal = document.getElementById('rf-note')?.value?.trim() || `Sửa thiết kế sơ bộ & báo giá lần ${nextRevNum}`;
+        const rawQuote = parseInt((quoteInput?.value || '').replace(/\D/g, ''), 10) || 0;
 
-      DB.addLeadRevision(lead.id, {
-        note: noteVal,
-        quoteAmount: rawQuote
-      }, user.id);
+        DB.addLeadRevision(lead.id, {
+          note: noteVal,
+          quoteAmount: rawQuote
+        }, user.id);
 
-      Toast.success(`Đã lưu thành công sửa thiết kế Lần ${nextRevNum}!`);
-      modal.close();
-      if (onDone) onDone();
-      this.renderLeads(user);
+        Toast.success(`Đã lưu thành công sửa thiết kế Lần ${nextRevNum}!`);
+        modal.close();
+        if (onDone) onDone();
+        UI.renderLeads(user);
+      } catch (err) {
+        console.error('Submit revision error:', err);
+        Toast.error('Có lỗi xảy ra khi lưu: ' + (err.message || err));
+        const submitBtn = document.getElementById('btn-submit-revision');
+        if (submitBtn) submitBtn.disabled = false;
+      }
     });
   },
 
