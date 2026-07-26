@@ -2022,20 +2022,36 @@ export const UI = {
 
     document.getElementById('revision-form')?.addEventListener('submit', (e) => {
       e.preventDefault();
-      const submitBtn = e.target.querySelector('button[type="submit"]');
-      if (submitBtn && submitBtn.disabled) return;
-      if (submitBtn) submitBtn.disabled = true;
+      try {
+        const submitBtn = e.target.querySelector('button[type="submit"]');
+        if (submitBtn && submitBtn.disabled) return;
+        if (submitBtn) submitBtn.disabled = true;
 
-      const rawQuote = parseInt(quoteInput.value.replace(/\D/g, ''), 10) || 0;
-      const updatedLead = DB.addLeadRevision(lead.id, {
-        note: document.getElementById('rf-note').value,
-        quoteAmount: rawQuote
-      }, user.id);
+        const noteVal = document.getElementById('rf-note')?.value?.trim() || '';
+        if (!noteVal) {
+          Toast.error('Vui lòng nhập nội dung chỉnh sửa!');
+          if (submitBtn) submitBtn.disabled = false;
+          return;
+        }
 
-      Toast.success(`Đã lưu sửa thiết kế & báo giá lại Lần ${nextRevNum}!`);
-      modal.close();
-      if (onDone) onDone();
-      this.openLeadDrawer(lead.id, user);
+        const rawQuote = parseInt((quoteInput?.value || '').replace(/\D/g, ''), 10) || 0;
+
+        DB.addLeadRevision(lead.id, {
+          note: noteVal,
+          quoteAmount: rawQuote
+        }, user.id);
+
+        Toast.success(`Đã lưu sửa thiết kế & báo giá lại Lần ${nextRevNum}!`);
+        modal.close();
+        if (onDone) onDone();
+
+        setTimeout(() => {
+          this.openLeadDrawer(lead.id, user);
+        }, 120);
+      } catch (err) {
+        console.error('Revision submit error:', err);
+        Toast.error('Có lỗi xảy ra khi lưu!');
+      }
     });
   },
 
