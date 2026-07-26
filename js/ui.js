@@ -2022,12 +2022,17 @@ export const UI = {
 
     document.getElementById('revision-form')?.addEventListener('submit', (e) => {
       e.preventDefault();
+      const submitBtn = e.target.querySelector('button[type="submit"]');
+      if (submitBtn && submitBtn.disabled) return;
+      if (submitBtn) submitBtn.disabled = true;
+
       const rawQuote = parseInt(quoteInput.value.replace(/\D/g, ''), 10) || 0;
-      DB.addLeadRevision(lead.id, {
+      const updatedLead = DB.addLeadRevision(lead.id, {
         note: document.getElementById('rf-note').value,
         quoteAmount: rawQuote
       }, user.id);
-      Toast.success(`Đã cập nhật sửa thiết kế lần ${nextRevNum}!`);
+
+      Toast.success(`Đã lưu sửa thiết kế & báo giá lại Lần ${nextRevNum}!`);
       modal.close();
       if (onDone) onDone();
       this.openLeadDrawer(lead.id, user);

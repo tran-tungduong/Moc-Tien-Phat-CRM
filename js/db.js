@@ -220,7 +220,7 @@ export const DB = {
             createdAt: l.created_at,
             updatedAt: l.updated_at || localLead?.updatedAt || new Date().toISOString(),
             history: (history && history.length > 0) ? history : (localLead?.history || []),
-            revisions: revisions
+            revisions: (revisions && revisions.length > 0) ? revisions : (localLead?.revisions || [])
           };
         });
 
@@ -769,13 +769,22 @@ export const DB = {
     if (!lead) return null;
 
     lead.revisions = lead.revisions || [];
+    const noteText = data.note || '';
+
+    // Ignore duplicate rapid submit within 3 seconds
+    const lastRev = lead.revisions[lead.revisions.length - 1];
+    if (lastRev && (lastRev.note === noteText || lastRev.note === `Sửa thiết kế sơ bộ & báo giá lần ${lead.revisions.length}`)) {
+      const diffMs = Math.abs(new Date().getTime() - new Date(lastRev.date || 0).getTime());
+      if (diffMs < 3000) return lead;
+    }
+
     const revNum = (lead.revisions.length || 0) + 1;
     const userName = this.getUserById(userId)?.name || 'Nhân viên';
 
     const revisionObj = {
       revNum,
       date: new Date().toISOString(),
-      note: data.note || `Sửa thiết kế sơ bộ & báo giá lần ${revNum}`,
+      note: noteText || `Sửa thiết kế sơ bộ & báo giá lần ${revNum}`,
       quoteAmount: data.quoteAmount || 0,
       user: userName
     };
@@ -785,7 +794,7 @@ export const DB = {
     if (data.quoteAmount) lead.budget = data.quoteAmount;
     lead.updatedAt = new Date().toISOString();
 
-    const newH = this._addLeadHistory(lead, `🔄 Sửa thiết kế sơ bộ & Báo giá lần ${revNum}: ${data.note || ''}`, userName);
+    const newH = this._addLeadHistory(lead, `🔄 Sửa thiết kế sơ bộ & Báo giá lần ${revNum}: ${revisionObj.note}`, userName);
 
     this.save(db);
     this._pushLeadToSupabase(lead, newH);
@@ -794,7 +803,7 @@ export const DB = {
         lead_id: leadId,
         rev_num: revNum,
         quote_amount: data.quoteAmount || 0,
-        note: data.note || '',
+        note: revisionObj.note,
         user_name: revisionObj.user,
         date: revisionObj.date
       }).catch(console.error);
