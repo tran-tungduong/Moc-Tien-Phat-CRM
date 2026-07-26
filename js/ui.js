@@ -2024,9 +2024,12 @@ export const UI = {
     });
 
     document.getElementById('btn-cancel-revision')?.addEventListener('click', () => {
+      if (document.activeElement) document.activeElement.blur();
       modal.close();
       if (onDone) onDone();
-      this.openLeadDrawer(lead.id, user);
+      setTimeout(() => {
+        this.openLeadDrawer(lead.id, user);
+      }, 80);
     });
 
     document.getElementById('revision-form')?.addEventListener('submit', (e) => {
@@ -2050,10 +2053,14 @@ export const UI = {
       }, user.id);
 
       Toast.success(`Đã lưu sửa thiết kế Lần ${nextRevNum}!`);
+      
+      if (document.activeElement) document.activeElement.blur();
       modal.close();
       if (onDone) onDone();
-      this.renderLeads(user);
-      this.openLeadDrawer(lead.id, user);
+
+      setTimeout(() => {
+        this.openLeadDrawer(lead.id, user);
+      }, 80);
     });
   },
 
