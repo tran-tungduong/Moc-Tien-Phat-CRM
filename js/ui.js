@@ -4810,13 +4810,14 @@ export const UI = {
 
                   <!-- Actions -->
                   <div style="border-top:1px solid rgba(255,255,255,0.06); padding-top:10px; display:flex; justify-content:space-between; align-items:center; gap:8px;">
+                    <button class="btn-secondary btn-sm btn-detail-task" data-id="${t.id}" style="background:rgba(255,255,255,0.06); border:1px solid var(--border-color); font-weight:700;"><i class="fas fa-history"></i> Log Chi Tiết</button>
                     ${isCompleted ? `
-                      <div style="font-size:0.75rem; color:#10B981; font-weight:700;"><i class="fas fa-check-double"></i> Đã bàn giao kết quả</div>
+                      <div style="font-size:0.75rem; color:#10B981; font-weight:700;"><i class="fas fa-check-double"></i> Đã hoàn thành</div>
                     ` : `
                       ${t.status === 'pending' ? `
-                        <button class="btn-secondary btn-sm btn-start-task" data-id="${t.id}" style="background:rgba(59,130,246,0.15); color:#3B82F6; border:1px solid rgba(59,130,246,0.3); font-weight:700;"><i class="fas fa-play"></i> Bắt Đầu Làm</button>
+                        <button class="btn-secondary btn-sm btn-start-task" data-id="${t.id}" style="background:rgba(59,130,246,0.15); color:#3B82F6; border:1px solid rgba(59,130,246,0.3); font-weight:700;"><i class="fas fa-play"></i> Bắt Đầu</button>
                       ` : ''}
-                      <button class="btn-primary btn-sm btn-complete-task" data-id="${t.id}" style="background:linear-gradient(135deg, #10B981, #059669); border:none; font-weight:700; flex:1;"><i class="fas fa-check-circle"></i> Nộp Bài / Hoàn Thành</button>
+                      <button class="btn-primary btn-sm btn-complete-task" data-id="${t.id}" style="background:linear-gradient(135deg, #10B981, #059669); border:none; font-weight:700; flex:1;"><i class="fas fa-check-circle"></i> Nộp Bài</button>
                     `}
                     ${(user.role === 'manager' || user.id === t.assignerId) ? `
                       <button class="btn-icon btn-delete-task" data-id="${t.id}" title="Xóa task" style="color:#EF4444; padding:6px; background:rgba(239,68,68,0.1); border-radius:6px; cursor:pointer;"><i class="fas fa-trash-alt"></i></button>
@@ -4834,6 +4835,17 @@ export const UI = {
     document.querySelectorAll('.filter-tabs .tab-btn').forEach(btn => {
       btn.addEventListener('click', () => {
         this.renderKtsTasks(user, btn.getAttribute('data-type'));
+      });
+    });
+
+    // Detail modal listener
+    document.querySelectorAll('.btn-detail-task').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const id = btn.getAttribute('data-id');
+        const task = DB.getKtsTasks().find(t => t.id === id);
+        if (task) {
+          this.openKtsTaskDetailModal(task, user, () => this.renderKtsTasks(user, filterType));
+        }
       });
     });
 
@@ -4968,6 +4980,189 @@ export const UI = {
     });
   },
 
+  openKtsTaskDetailModal(task, user = null, onSave = null) {
+    if (!user) user = DB.getCurrentUser();
+    const freshTask = DB.getKtsTasks().find(t => t.id === task.id) || task;
+
+    const typeMap = {
+      fast_support: { label: '⚡ Vẽ Phản Ứng Nhanh Hỗ Trợ Sale', color: '#8B5CF6' },
+      technical_draw: { label: '📐 Vẽ Kết Cấu Chi Tiết', color: '#3B82F6' },
+      cnc_export: { label: '🖨️ Xuất File CNC', color: '#10B981' }
+    };
+    const tInfo = typeMap[freshTask.taskType] || { label: '🛠️ Công Việc KTS', color: 'var(--primary)' };
+
+    const getCountdown = (deadlineStr) => {
+      if (!deadlineStr) return { label: 'Chưa đặt hạn chót', color: '#64748B', isOverdue: false };
+      const d = new Date(deadlineStr);
+      const diffMs = d.getTime() - new Date().getTime();
+      if (diffMs <= 0) {
+        const overdueMinutes = Math.abs(Math.floor(diffMs / (1000 * 60)));
+        const overdueHours = Math.floor(overdueMinutes / 60);
+        const overdueDays = Math.floor(overdueHours / 24);
+        let text = overdueDays > 0 ? `${overdueDays}d ${overdueHours % 24}h` : (overdueHours > 0 ? `${overdueHours}h ${overdueMinutes % 60}m` : `${overdueMinutes}m`);
+        return { label: `⛔ QUÁ HẠN ${text}`, color: '#EF4444', isOverdue: true };
+      }
+      const mins = Math.floor(diffMs / (1000 * 60));
+      const hours = Math.floor(mins / 60);
+      const days = Math.floor(hours / 24);
+      if (days === 0) return { label: `🔥 HÔM NAY · Còn ${hours}h ${mins % 60}p`, color: '#F59E0B', isOverdue: false };
+      if (days === 1) return { label: `🟡 NGÀY MAI · Còn 1d ${hours % 24}h`, color: '#3B82F6', isOverdue: false };
+      return { label: `🟢 Còn ${days} ngày ${hours % 24}h`, color: '#10B981', isOverdue: false };
+    };
+
+    const cd = getCountdown(freshTask.deadline);
+    const isCompleted = freshTask.status === 'completed';
+
+    const assignedTime = freshTask.createdAt ? fmt.datetime(freshTask.createdAt) : 'Chưa ghi nhận';
+    const assignerName = freshTask.assignerName || 'Sale / Admin';
+    const ktsName = freshTask.ktsName || 'Trần Hữu Nhật Long';
+    const startedTime = freshTask.startedAt ? fmt.datetime(freshTask.startedAt) : (freshTask.status !== 'pending' ? 'Đã tiếp nhận' : null);
+    const completedTime = freshTask.completedAt ? fmt.datetime(freshTask.completedAt) : null;
+
+    const html = `
+      <div style="display:flex; flex-direction:column; gap:16px; max-height:75vh; overflow-y:auto; padding-right:4px;">
+        <!-- Summary Card -->
+        <div style="background:rgba(255,255,255,0.03); border:1px solid var(--border-color); border-left:4px solid ${tInfo.color}; border-radius:12px; padding:14px 16px;">
+          <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:8px; margin-bottom:8px;">
+            <span style="font-size:0.72rem; font-weight:800; padding:4px 10px; border-radius:6px; background:${tInfo.color}20; color:${tInfo.color}; border:1px solid ${tInfo.color}40;">
+              ${tInfo.label}
+            </span>
+            <span style="font-size:0.72rem; font-weight:800; padding:4px 10px; border-radius:6px; background:${isCompleted ? 'rgba(16,185,129,0.15)' : (freshTask.status === 'in_progress' ? 'rgba(59,130,246,0.15)' : 'rgba(245,158,11,0.15)')}; color:${isCompleted ? '#10B981' : (freshTask.status === 'in_progress' ? '#3B82F6' : '#F59E0B')};">
+              ${isCompleted ? '✅ ĐÃ HOÀN THÀNH' : (freshTask.status === 'in_progress' ? '🔵 ĐANG THỰC HIỆN' : '🟡 CHỜ KTS')}
+            </span>
+          </div>
+
+          <div style="font-size:1.05rem; font-weight:800; color:var(--text-primary); margin-bottom:6px;">
+            ${freshTask.title}
+          </div>
+
+          <div style="display:flex; flex-wrap:wrap; gap:14px; font-size:0.8rem; color:var(--text-secondary); margin-bottom:10px;">
+            <div><i class="fas fa-building" style="color:var(--primary);"></i> Dự án: <strong style="color:var(--text-primary);">${freshTask.leadName || 'Dự án'}</strong></div>
+            <div><i class="fas fa-user-tie" style="color:#8B5CF6;"></i> Người giao: <strong>${assignerName}</strong></div>
+            <div><i class="fas fa-user-ninja" style="color:#3B82F6;"></i> KTS nhận: <strong>${ktsName}</strong></div>
+          </div>
+
+          ${freshTask.requirement ? `
+            <div style="font-size:0.8rem; color:var(--text-primary); background:rgba(0,0,0,0.15); border:1px solid rgba(255,255,255,0.06); padding:10px 12px; border-radius:8px; margin-top:8px;">
+              <div style="font-weight:700; color:var(--primary); font-size:0.75rem; margin-bottom:2px;"><i class="fas fa-comment-dots"></i> Yêu cầu từ Sale / Admin:</div>
+              "${freshTask.requirement}"
+            </div>
+          ` : ''}
+
+          <div style="margin-top:10px; background:${isCompleted ? 'rgba(16,185,129,0.08)' : (cd.isOverdue ? 'rgba(239,68,68,0.1)' : 'rgba(255,255,255,0.04)')}; border:1px solid ${isCompleted ? 'rgba(16,185,129,0.3)' : (cd.isOverdue ? 'rgba(239,68,68,0.3)' : 'var(--border-color)')}; padding:8px 12px; border-radius:8px; display:flex; justify-content:space-between; align-items:center; font-size:0.78rem;">
+            <span style="font-weight:700; color:${isCompleted ? '#10B981' : cd.color};">
+              <i class="fas ${isCompleted ? 'fa-check-circle' : 'fa-clock'}"></i> ${isCompleted ? 'Đã hoàn thành bàn giao' : cd.label}
+            </span>
+            <span style="color:var(--text-muted);"><i class="fas fa-calendar-alt"></i> Hạn chót: <strong>${fmt.datetime(freshTask.deadline)}</strong></span>
+          </div>
+        </div>
+
+        <!-- Log Timeline Section (GIAO KHI NÀO - NHẬN KHI NÀO - XONG KHI NÀO) -->
+        <div style="background:rgba(255,255,255,0.02); border:1px solid var(--border-color); border-radius:12px; padding:16px;">
+          <div style="font-size:0.9rem; font-weight:800; color:var(--text-primary); margin-bottom:14px; display:flex; align-items:center; gap:8px;">
+            <i class="fas fa-history" style="color:var(--primary);"></i>
+            <span>Lịch Sử Tiến Độ Log Task (Giao · Nhận · Xong)</span>
+          </div>
+
+          <div style="display:flex; flex-direction:column; gap:16px; position:relative; padding-left:20px; border-left:2px dashed var(--border-color);">
+            
+            <!-- 1. Giao khi nào -->
+            <div style="position:relative;">
+              <div style="position:absolute; left:-27px; top:0; width:14px; height:14px; border-radius:50%; background:#8B5CF6; border:3px solid var(--bg-primary);"></div>
+              <div style="font-size:0.82rem; font-weight:800; color:var(--text-primary); display:flex; justify-content:space-between; align-items:center;">
+                <span>🚀 1. Thời Điểm Giao Việc</span>
+                <span style="font-size:0.72rem; color:#8B5CF6; font-weight:700;">${assignedTime}</span>
+              </div>
+              <div style="font-size:0.78rem; color:var(--text-secondary); margin-top:2px;">
+                Đã được giao bởi <strong>${assignerName}</strong> cho KTS <strong>${ktsName}</strong>.
+              </div>
+            </div>
+
+            <!-- 2. Nhận khi nào -->
+            <div style="position:relative;">
+              <div style="position:absolute; left:-27px; top:0; width:14px; height:14px; border-radius:50%; background:${startedTime ? '#3B82F6' : '#64748B'}; border:3px solid var(--bg-primary);"></div>
+              <div style="font-size:0.82rem; font-weight:800; color:${startedTime ? 'var(--text-primary)' : 'var(--text-muted)'}; display:flex; justify-content:space-between; align-items:center;">
+                <span>🔵 2. Thời Điểm Tiếp Nhận / Bắt Đầu Làm</span>
+                <span style="font-size:0.72rem; color:${startedTime ? '#3B82F6' : '#64748B'}; font-weight:700;">${startedTime || 'Chưa tiếp nhận'}</span>
+              </div>
+              <div style="font-size:0.78rem; color:${startedTime ? 'var(--text-secondary)' : 'var(--text-muted)'}; margin-top:2px;">
+                ${startedTime ? `KTS <strong>${ktsName}</strong> đã tiếp nhận và bắt đầu thực hiện.` : '⏳ KTS chưa bấm nút Bắt đầu nhận công việc.'}
+              </div>
+            </div>
+
+            <!-- 3. Xong khi nào -->
+            <div style="position:relative;">
+              <div style="position:absolute; left:-27px; top:0; width:14px; height:14px; border-radius:50%; background:${completedTime ? '#10B981' : '#64748B'}; border:3px solid var(--bg-primary);"></div>
+              <div style="font-size:0.82rem; font-weight:800; color:${completedTime ? '#10B981' : 'var(--text-muted)'}; display:flex; justify-content:space-between; align-items:center;">
+                <span>✅ 3. Thời Điểm Hoàn Thành & Nộp Bài</span>
+                <span style="font-size:0.72rem; color:${completedTime ? '#10B981' : '#64748B'}; font-weight:700;">${completedTime || 'Chưa hoàn thành'}</span>
+              </div>
+              <div style="font-size:0.78rem; color:${completedTime ? 'var(--text-secondary)' : 'var(--text-muted)'}; margin-top:2px;">
+                ${completedTime ? `KTS <strong>${ktsName}</strong> đã hoàn thành bài vẽ.` : '⏳ Công việc chưa hoàn thành.'}
+              </div>
+              ${freshTask.resultNote ? `
+                <div style="font-size:0.75rem; color:#10B981; background:rgba(16,185,129,0.08); border:1px solid rgba(16,185,129,0.2); padding:8px 10px; border-radius:6px; margin-top:6px;">
+                  <strong>Kết quả nộp:</strong> ${freshTask.resultNote}
+                  ${freshTask.resultFileLink ? `<div style="margin-top:4px;"><a href="${freshTask.resultFileLink}" target="_blank" style="color:#3B82F6; text-decoration:underline;"><i class="fas fa-external-link-alt"></i> Mở link file đính kèm</a></div>` : ''}
+                </div>
+              ` : ''}
+              ${freshTask.resultImage ? `
+                <div style="margin-top:6px;">
+                  <img src="${freshTask.resultImage}" style="max-width:100%; max-height:160px; border-radius:8px; border:1px solid var(--border-color); object-fit:cover;">
+                </div>
+              ` : ''}
+            </div>
+
+          </div>
+
+          <!-- Extra audit history log list -->
+          ${(freshTask.history && freshTask.history.length > 0) ? `
+            <div style="margin-top:16px; padding-top:12px; border-top:1px dashed var(--border-color);">
+              <div style="font-size:0.75rem; font-weight:700; color:var(--text-muted); margin-bottom:8px;"><i class="fas fa-list-ul"></i> Chi tiết nhật ký thao tác:</div>
+              <div style="display:flex; flex-direction:column; gap:6px;">
+                ${freshTask.history.map(h => `
+                  <div style="font-size:0.72rem; color:var(--text-secondary); background:rgba(255,255,255,0.02); padding:6px 8px; border-radius:6px; display:flex; justify-content:space-between;">
+                    <span><strong>${h.action}</strong> ${h.user ? `(${h.user})` : ''} ${h.note ? `: ${h.note}` : ''}</span>
+                    <span style="color:var(--text-muted); font-size:0.68rem;">${fmt.datetime(h.timestamp)}</span>
+                  </div>
+                `).join('')}
+              </div>
+            </div>
+          ` : ''}
+        </div>
+
+        <!-- Footer Buttons -->
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-top:4px; padding-top:12px; border-top:1px solid var(--border-color);">
+          <div style="display:flex; gap:8px;">
+            ${!isCompleted && freshTask.status === 'pending' ? `
+              <button class="btn-secondary btn-sm" id="btn-detail-start-task" style="background:rgba(59,130,246,0.15); color:#3B82F6; border:1px solid rgba(59,130,246,0.3); font-weight:700; cursor:pointer;"><i class="fas fa-play"></i> Bắt Đầu Làm</button>
+            ` : ''}
+            ${!isCompleted ? `
+              <button class="btn-primary btn-sm" id="btn-detail-complete-task" style="background:linear-gradient(135deg, #10B981, #059669); border:none; font-weight:700; cursor:pointer;"><i class="fas fa-check-circle"></i> Nộp Bài / Hoàn Thành</button>
+            ` : ''}
+          </div>
+          <button class="btn-secondary" id="btn-close-detail-modal" style="padding:6px 14px; font-size:0.8rem; border-radius:6px; cursor:pointer;">Đóng</button>
+        </div>
+
+      </div>
+    `;
+
+    const modal = Modal.create(`📋 Lịch Sử Log Task: ${freshTask.title}`, html);
+    document.getElementById('btn-close-detail-modal')?.addEventListener('click', () => modal.close());
+
+    document.getElementById('btn-detail-start-task')?.addEventListener('click', () => {
+      DB.updateKtsTask(freshTask.id, { status: 'in_progress', startedAt: new Date().toISOString() });
+      Toast.info('Đã nhận việc và chuyển trạng thái: Đang thực hiện.');
+      modal.close();
+      if (onSave) onSave();
+    });
+
+    document.getElementById('btn-detail-complete-task')?.addEventListener('click', () => {
+      modal.close();
+      this.openCompleteKtsTaskModal(freshTask, user, onSave);
+    });
+  },
+
   openKtsTaskCategoryModal(taskType, user = null) {
     if (!user) user = DB.getCurrentUser();
     const tasks = DB.getKtsTasks(user.id, user.role).filter(t => t.taskType === taskType && t.status !== 'completed');
@@ -5031,7 +5226,10 @@ export const UI = {
 
               <div style="display:flex; justify-content:space-between; align-items:center; margin-top:10px; padding-top:6px; border-top:1px solid rgba(255,255,255,0.05); font-size:0.72rem;">
                 <span style="color:var(--text-muted);"><i class="fas fa-user-tie"></i> Giao bởi: <strong>${t.assignerName || 'Sale'}</strong></span>
-                <button class="btn-primary btn-sm btn-modal-complete-task" data-id="${t.id}" style="background:linear-gradient(135deg, #10B981, #059669); border:none; padding:5px 12px; font-weight:700; border-radius:6px; cursor:pointer;"><i class="fas fa-check-circle"></i> Nộp Bài</button>
+                <div style="display:flex; gap:6px;">
+                  <button class="btn-secondary btn-sm btn-modal-detail-task" data-id="${t.id}" style="background:rgba(255,255,255,0.06); border:1px solid var(--border-color); padding:5px 10px; font-weight:700; border-radius:6px; cursor:pointer;"><i class="fas fa-history"></i> Log Chi Tiết</button>
+                  <button class="btn-primary btn-sm btn-modal-complete-task" data-id="${t.id}" style="background:linear-gradient(135deg, #10B981, #059669); border:none; padding:5px 12px; font-weight:700; border-radius:6px; cursor:pointer;"><i class="fas fa-check-circle"></i> Nộp Bài</button>
+                </div>
               </div>
             </div>
           `;
@@ -5049,6 +5247,17 @@ export const UI = {
     document.getElementById('btn-modal-go-kts-tasks')?.addEventListener('click', () => {
       modal.close();
       this.renderKtsTasks(user, taskType);
+    });
+
+    document.querySelectorAll('.btn-modal-detail-task').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const id = btn.getAttribute('data-id');
+        const task = DB.getKtsTasks().find(t => t.id === id);
+        if (task) {
+          modal.close();
+          this.openKtsTaskDetailModal(task, user, () => this.openKtsTaskCategoryModal(taskType, user));
+        }
+      });
     });
 
     document.querySelectorAll('.btn-modal-complete-task').forEach(btn => {

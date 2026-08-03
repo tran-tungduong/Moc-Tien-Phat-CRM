@@ -413,8 +413,10 @@ export const DB = {
           requirement: t.requirement || '',
           status: t.status || 'pending',
           deadline: t.deadline || '',
+          startedAt: t.started_at || '',
           completedAt: t.completed_at || '',
           completedNote: t.completed_note || '',
+          history: Array.isArray(t.history) ? t.history : [],
           createdAt: t.created_at,
           updatedAt: t.updated_at
         }));
@@ -723,7 +725,13 @@ export const DB = {
         requirement: task.requirement || null,
         status: task.status || 'pending',
         deadline: task.deadline || null,
-});
+        started_at: task.startedAt || null,
+        completed_at: task.completedAt || null,
+        completed_note: task.completedNote || task.resultNote || null,
+        history: task.history || [],
+        created_at: task.createdAt,
+        updated_at: task.updatedAt || task.createdAt
+      });
     } catch (err) { console.error('Push kts_task error:', err); }
   },
 
@@ -1577,10 +1585,21 @@ export const DB = {
   addKtsTask(taskData) {
     const db = this.load();
     if (!db.ktsTasks) db.ktsTasks = [];
+    const now = new Date().toISOString();
     const newTask = {
       id: 'kts_task_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
       status: 'pending',
-      createdAt: new Date().toISOString(),
+      createdAt: now,
+      startedAt: null,
+      completedAt: null,
+      history: [
+        {
+          timestamp: now,
+          action: '🚀 Giao việc KTS',
+          user: taskData.assignerName || 'Sale / Admin',
+          note: taskData.requirement ? `Yêu cầu: ${taskData.requirement}` : 'Khởi tạo yêu cầu giao việc mới'
+        }
+      ],
       ...taskData
     };
     db.ktsTasks.unshift(newTask);
@@ -1607,7 +1626,30 @@ export const DB = {
     const idx = db.ktsTasks.findIndex(t => t.id === id);
     if (idx !== -1) {
       const oldTask = db.ktsTasks[idx];
-      db.ktsTasks[idx] = { ...oldTask, ...fields, updatedAt: new Date().toISOString() };
+      const now = new Date().toISOString();
+      const history = [...(oldTask.history || [])];
+
+      if (fields.status === 'in_progress' && oldTask.status !== 'in_progress') {
+        fields.startedAt = fields.startedAt || now;
+        history.push({
+          timestamp: fields.startedAt,
+          action: '🔵 Tiếp nhận & Bắt đầu làm',
+          user: oldTask.ktsName || 'KTS',
+          note: 'KTS đã tiếp nhận và chuyển trạng thái sang Đang thực hiện'
+        });
+      }
+
+      if (fields.status === 'completed' && oldTask.status !== 'completed') {
+        fields.completedAt = fields.completedAt || now;
+        history.push({
+          timestamp: fields.completedAt,
+          action: '✅ Đã nộp bài & Hoàn thành',
+          user: oldTask.ktsName || 'KTS',
+          note: fields.resultNote || fields.completedNote || 'Đã nộp bài hoàn thành'
+        });
+      }
+
+      db.ktsTasks[idx] = { ...oldTask, ...fields, history, updatedAt: now };
       this.save(db);
 
       if (fields.status === 'completed' && oldTask.status !== 'completed' && oldTask.assignerId) {

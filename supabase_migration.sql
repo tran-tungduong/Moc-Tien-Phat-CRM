@@ -23,11 +23,16 @@ CREATE TABLE IF NOT EXISTS public.kts_tasks (
     requirement TEXT,
     status TEXT DEFAULT 'pending',
     deadline TIMESTAMP WITH TIME ZONE,
+    started_at TIMESTAMP WITH TIME ZONE,
     completed_at TIMESTAMP WITH TIME ZONE,
     completed_note TEXT,
+    history JSONB DEFAULT '[]'::jsonb,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
+
+ALTER TABLE public.kts_tasks ADD COLUMN IF NOT EXISTS started_at TIMESTAMP WITH TIME ZONE;
+ALTER TABLE public.kts_tasks ADD COLUMN IF NOT EXISTS history JSONB DEFAULT '[]'::jsonb;
 
 -- 3. Tạo bảng kts_logs (nếu chưa có)
 CREATE TABLE IF NOT EXISTS public.kts_logs (
