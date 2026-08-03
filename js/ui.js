@@ -481,18 +481,33 @@ export const UI = {
       localStorage.setItem('mtp_theme', next);
     });
 
-    document.getElementById('login-form').addEventListener('submit', (e) => {
+    document.getElementById('login-form').addEventListener('submit', async (e) => {
       e.preventDefault();
       const username = document.getElementById('login-username').value.trim();
       const password = document.getElementById('login-password').value;
       const remember = document.getElementById('login-remember').checked;
-      const user = DB.login(username, password);
-      if (user) {
-        DB.setCurrentUser(user, remember);
-        Toast.success(`Chào mừng, ${user.name}! ${roleIcon(user.role)}`);
-        onSuccess();
-      } else {
-        Toast.error('Tên đăng nhập hoặc mật khẩu không đúng.');
+
+      // Show loading state
+      const btn = document.getElementById('login-submit-btn');
+      const origHTML = btn.innerHTML;
+      btn.disabled = true;
+      btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Đang đăng nhập...';
+
+      try {
+        const user = await DB.login(username, password);
+        if (user) {
+          DB.setCurrentUser(user, remember);
+          Toast.success(`Chào mừng, ${user.name}! ${roleIcon(user.role)}`);
+          onSuccess();
+        } else {
+          Toast.error('Tên đăng nhập hoặc mật khẩu không đúng.');
+          btn.disabled = false;
+          btn.innerHTML = origHTML;
+        }
+      } catch (err) {
+        Toast.error('Lỗi kết nối. Vui lòng thử lại.');
+        btn.disabled = false;
+        btn.innerHTML = origHTML;
       }
     });
   },

@@ -4,6 +4,8 @@
 -- ════════════════════════════════════════════════════════════════════════
 
 -- 1. Xóa các bảng cũ nếu tồn tại (Clean setup)
+DROP TABLE IF EXISTS public.kts_logs CASCADE;
+DROP TABLE IF EXISTS public.kts_tasks CASCADE;
 DROP TABLE IF EXISTS public.notifications CASCADE;
 DROP TABLE IF EXISTS public.approvals CASCADE;
 DROP TABLE IF EXISTS public.portfolio CASCADE;
@@ -178,10 +180,15 @@ CREATE TABLE public.approvals (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- 13. Bảng THÔNG BÁO (notifications)
+-- 13. Bảng THÔNG BÁO (notifications) - General purpose user notifications
 CREATE TABLE public.notifications (
     id TEXT PRIMARY KEY,
+    user_id TEXT REFERENCES public.users(id) ON DELETE CASCADE,
     type TEXT NOT NULL,
+    title TEXT,
+    message TEXT,
+    target_id TEXT,
+    -- Legacy contract payment notification fields
     contract_id TEXT,
     contract_code TEXT,
     customer_name TEXT,
@@ -192,6 +199,40 @@ CREATE TABLE public.notifications (
     collector_name TEXT,
     status TEXT DEFAULT 'unread', -- unread, read
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- 14. Bảng CÔNG VIỆC GIAO CHO KTS (kts_tasks)
+CREATE TABLE public.kts_tasks (
+    id TEXT PRIMARY KEY,
+    lead_id TEXT REFERENCES public.leads(id) ON DELETE SET NULL,
+    lead_name TEXT,
+    assigner_id TEXT REFERENCES public.users(id) ON DELETE SET NULL,
+    assigner_name TEXT,
+    kts_id TEXT REFERENCES public.users(id) ON DELETE SET NULL,
+    kts_name TEXT,
+    task_type TEXT NOT NULL, -- fast_support, technical_draw, cnc_export
+    title TEXT NOT NULL,
+    requirement TEXT,
+    status TEXT DEFAULT 'pending', -- pending, in_progress, completed
+    deadline TIMESTAMP WITH TIME ZONE,
+    completed_at TIMESTAMP WITH TIME ZONE,
+    completed_note TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- 15. Bảng BÁO CÁO KTS (kts_logs)
+CREATE TABLE public.kts_logs (
+    id TEXT PRIMARY KEY,
+    user_id TEXT REFERENCES public.users(id) ON DELETE SET NULL,
+    user_name TEXT,
+    project_name TEXT,
+    task_type TEXT,
+    hours_spent NUMERIC(5,2) DEFAULT 0,
+    description TEXT,
+    files_count INT DEFAULT 0,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
 -- ════════════════════════════════════════════════════════════════════════
@@ -226,6 +267,8 @@ ALTER TABLE public.appointments ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.portfolio ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.approvals ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.notifications ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.kts_tasks ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.kts_logs ENABLE ROW LEVEL SECURITY;
 
 -- Tạo chính sách (Policies) cho phép Client truy cập dữ liệu an toàn
 CREATE POLICY "Allow public read users" ON public.users FOR SELECT USING (true);
@@ -240,6 +283,8 @@ CREATE POLICY "Allow anon all on appointments" ON public.appointments FOR ALL US
 CREATE POLICY "Allow anon all on portfolio" ON public.portfolio FOR ALL USING (true);
 CREATE POLICY "Allow anon all on approvals" ON public.approvals FOR ALL USING (true);
 CREATE POLICY "Allow anon all on notifications" ON public.notifications FOR ALL USING (true);
+CREATE POLICY "Allow anon all on kts_tasks" ON public.kts_tasks FOR ALL USING (true);
+CREATE POLICY "Allow anon all on kts_logs" ON public.kts_logs FOR ALL USING (true);
 
 GRANT ALL ON ALL TABLES IN SCHEMA public TO anon;
 GRANT ALL ON ALL TABLES IN SCHEMA public TO authenticated;
@@ -254,7 +299,7 @@ INSERT INTO public.users (id, username, password, name, role, avatar) VALUES
 ('usr_hai', 'hai.ta', '123', 'Tạ Quốc Hải', 'sales', 'https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?w=100&auto=format&fit=crop&q=60'),
 ('usr_duong', 'duong.tran', '123', 'Trần Tùng Dương', 'marketing', 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100&auto=format&fit=crop&q=60'),
 ('usr_ketoan', 'ketoan', '123', 'Lê Thị Thu', 'accountant', 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=100&auto=format&fit=crop&q=60'),
-('usr_long_tran', 'long.tran', '123', 'Long Trần', 'sales', '')
+('usr_long_tran', 'long.tran', '123', 'Trần Hữu Nhật Long', 'kts', 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&auto=format&fit=crop&q=60')
 ON CONFLICT (id) DO NOTHING;
 
 -- ════════════════════════════════════════════════════════════════════════
@@ -272,7 +317,9 @@ BEGIN
       public.appointments, 
       public.portfolio, 
       public.approvals, 
-      public.notifications;
+      public.notifications,
+      public.kts_tasks,
+      public.kts_logs;
   END IF;
 EXCEPTION WHEN OTHERS THEN
   NULL;

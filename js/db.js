@@ -128,43 +128,24 @@ export const DB = {
   save(db) {
     try {
       localStorage.setItem(DB_KEY, JSON.stringify(db));
-      this.saveToServer(db);
     } catch (err) {
       console.error('LocalStorage save error:', err);
     }
   },
 
-  async saveToServer(dbData = null) {
-    const origin = window.location.origin;
-    if (origin.startsWith('file:')) return;
-    const data = dbData || this.load();
-    try {
-      await fetch(`${origin}/api/db`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data)
-      });
-    } catch (err) {
-      console.warn('Sync to server error:', err);
-    }
+  // saveToServer is no-op on GitHub Pages (data saved row-by-row via Supabase helpers)
+  async saveToServer() {
+    // No-op: all data is synced to Supabase row-by-row in real time
+    return;
   },
 
   // ── Supabase Relational Row-Level Sync Helpers ────────
   async syncWithServer(onSyncComplete = null) {
     if (!supabaseClient) {
-      const origin = window.location.origin;
-      if (origin.startsWith('file:')) return false;
-      try {
-        const res = await fetch(`${origin}/api/db`);
-        if (!res.ok) return false;
-        const serverDb = await res.json();
-        if (!serverDb || serverDb.error) return false;
-        localStorage.setItem(DB_KEY, JSON.stringify(serverDb));
-        if (onSyncComplete) onSyncComplete(serverDb);
-        return true;
-      } catch {
-        return false;
-      }
+      // No Supabase and no Python server on GitHub Pages — use localStorage only
+      const cached = this.load();
+      if (onSyncComplete) onSyncComplete(cached);
+      return false;
     }
 
     try {
@@ -181,7 +162,9 @@ export const DB = {
         { data: appointments },
         { data: portfolio },
         { data: approvals },
-        { data: notifications }
+        { data: notifications },
+        { data: ktsTasks },
+        { data: ktsLogs }
       ] = await Promise.all([
         supabaseClient.from('users').select('*'),
         supabaseClient.from('leads').select('*').order('created_at', { ascending: false }),
@@ -194,7 +177,9 @@ export const DB = {
         supabaseClient.from('appointments').select('*').order('datetime', { ascending: true }),
         supabaseClient.from('portfolio').select('*').order('created_at', { ascending: false }),
         supabaseClient.from('approvals').select('*').order('created_at', { ascending: false }),
-        supabaseClient.from('notifications').select('*').order('created_at', { ascending: false })
+        supabaseClient.from('notifications').select('*').order('created_at', { ascending: false }),
+        supabaseClient.from('kts_tasks').select('*').order('created_at', { ascending: false }),
+        supabaseClient.from('kts_logs').select('*').order('created_at', { ascending: false })
       ]);
 
       const db = this.load();
@@ -208,12 +193,20 @@ export const DB = {
           role: u.role,
           avatar: u.avatar
         }));
-        DEFAULT_USERS.forEach(defU => {
-          if (!fetchedUsers.some(u => u.id === defU.id || u.username === defU.username)) {
-            fetchedUsers.push(defU);
-          }
-        });
         db.users = fetchedUsers;
+      } else {
+        // Fallback: seed DEFAULT_USERS to Supabase if table is empty
+        for (const defU of DEFAULT_USERS) {
+          await supabaseClient.from('users').upsert({
+            id: defU.id,
+            username: defU.username,
+            password: defU.password,
+            name: defU.name,
+            role: defU.role,
+            avatar: defU.avatar || ''
+          });
+        }
+        db.users = DEFAULT_USERS;
       }
 
       if (leads) {
@@ -388,7 +381,11 @@ export const DB = {
       if (notifications) {
         db.notifications = notifications.map(n => ({
           id: n.id,
+          userId: n.user_id || '',
           type: n.type,
+          title: n.title || '',
+          message: n.message || '',
+          targetId: n.target_id || '',
           contractId: n.contract_id || '',
           contractCode: n.contract_code || '',
           customerName: n.customer_name || '',
@@ -399,6 +396,42 @@ export const DB = {
           collectorName: n.collector_name || '',
           status: n.status || 'unread',
           createdAt: n.created_at
+        }));
+      }
+
+      if (ktsTasks) {
+        db.ktsTasks = ktsTasks.map(t => ({
+          id: t.id,
+          leadId: t.lead_id || '',
+          leadName: t.lead_name || '',
+          assignerId: t.assigner_id || '',
+          assignerName: t.assigner_name || '',
+          ktsId: t.kts_id || '',
+          ktsName: t.kts_name || '',
+          taskType: t.task_type || '',
+          title: t.title || '',
+          requirement: t.requirement || '',
+          status: t.status || 'pending',
+          deadline: t.deadline || '',
+          completedAt: t.completed_at || '',
+          completedNote: t.completed_note || '',
+          createdAt: t.created_at,
+          updatedAt: t.updated_at
+        }));
+      }
+
+      if (ktsLogs) {
+        db.ktsLogs = ktsLogs.map(l => ({
+          id: l.id,
+          userId: l.user_id || '',
+          userName: l.user_name || '',
+          projectName: l.project_name || '',
+          taskType: l.task_type || '',
+          hoursSpent: Number(l.hours_spent) || 0,
+          description: l.description || '',
+          filesCount: Number(l.files_count) || 0,
+          createdAt: l.created_at,
+          updatedAt: l.updated_at
         }));
       }
 
@@ -655,39 +688,97 @@ export const DB = {
     try {
       await supabaseClient.from('notifications').upsert({
         id: notif.id,
+        user_id: notif.userId || null,
         type: notif.type,
+        title: notif.title || null,
+        message: notif.message || null,
+        target_id: notif.targetId || null,
         contract_id: notif.contractId || null,
-        contract_code: notif.contractCode,
-        customer_name: notif.customerName,
-        amount: notif.amount,
+        contract_code: notif.contractCode || null,
+        customer_name: notif.customerName || null,
+        amount: notif.amount || 0,
         date: notif.date || null,
-        note: notif.note,
-        proof_image: notif.proofImage,
-        collector_name: notif.collectorName,
-        status: notif.status,
+        note: notif.note || null,
+        proof_image: notif.proofImage || null,
+        collector_name: notif.collectorName || null,
+        status: notif.status || 'unread',
         created_at: notif.createdAt
       });
     } catch (err) { console.error('Push notification error:', err); }
   },
 
+  async _pushKtsTaskToSupabase(task) {
+    if (!supabaseClient || !task) return;
+    try {
+      await supabaseClient.from('kts_tasks').upsert({
+        id: task.id,
+        lead_id: task.leadId || null,
+        lead_name: task.leadName || null,
+        assigner_id: task.assignerId || null,
+        assigner_name: task.assignerName || null,
+        kts_id: task.ktsId || null,
+        kts_name: task.ktsName || null,
+        task_type: task.taskType || '',
+        title: task.title || '',
+        requirement: task.requirement || null,
+        status: task.status || 'pending',
+        deadline: task.deadline || null,
+});
+    } catch (err) { console.error('Push kts_task error:', err); }
+  },
+
+  async _pushKtsLogToSupabase(log) {
+    if (!supabaseClient || !log) return;
+    try {
+      await supabaseClient.from('kts_logs').upsert({
+        id: log.id,
+        user_id: log.userId || null,
+        user_name: log.userName || null,
+        project_name: log.projectName || null,
+        task_type: log.taskType || null,
+        hours_spent: log.hoursSpent || 0,
+        description: log.description || null,
+        files_count: log.filesCount || 0,
+        created_at: log.createdAt,
+        updated_at: log.updatedAt || log.createdAt
+      });
+    } catch (err) { console.error('Push kts_log error:', err); }
+  },
+
   // ── Auth ──────────────────────────────────────────────
-  login(username, password) {
-    const db = this.load();
+  async login(username, password) {
     const uName = (username || '').trim();
     const pWord = (password || '').trim();
-    let user = db.users.find(u => u.username === uName && u.password === pWord);
-    if (!user) {
-      // Fallback check against DEFAULT_USERS if local db was out of sync
-      const defU = DEFAULT_USERS.find(u => u.username === uName && u.password === pWord);
-      if (defU) {
-        if (!db.users.some(u => u.id === defU.id)) {
-          db.users.push(defU);
-          this.save(db);
+
+    // 1. Try Supabase first (source of truth)
+    if (supabaseClient) {
+      try {
+        const { data: users, error } = await supabaseClient
+          .from('users')
+          .select('*')
+          .eq('username', uName)
+          .eq('password', pWord)
+          .limit(1);
+        if (!error && users && users.length > 0) {
+          const u = users[0];
+          const user = { id: u.id, username: u.username, password: u.password, name: u.name, role: u.role, avatar: u.avatar };
+          // Update localStorage cache
+          const db = this.load();
+          const idx = db.users.findIndex(x => x.id === user.id);
+          if (idx >= 0) db.users[idx] = user; else db.users.push(user);
+          localStorage.setItem(DB_KEY, JSON.stringify(db));
+          return user;
         }
-        user = defU;
+        // Supabase responded but no match — wrong credentials
+        if (!error) return null;
+      } catch (err) {
+        console.warn('Supabase login failed, falling back to localStorage:', err);
       }
     }
-    return user || null;
+
+    // 2. Fallback: localStorage cache (Supabase unreachable)
+    const db = this.load();
+    return db.users.find(u => u.username === uName && u.password === pWord) || null;
   },
 
   getCurrentUser() {
@@ -1443,7 +1534,7 @@ export const DB = {
     db.ktsLogs.unshift(newLog);
     this.save(db);
     this.addSystemLog(`Báo cáo KTS mới: ${newLog.userName} - ${newLog.projectName}`);
-    this.saveToServer();
+    this._pushKtsLogToSupabase(newLog);
     return newLog;
   },
 
@@ -1454,7 +1545,7 @@ export const DB = {
     if (idx !== -1) {
       db.ktsLogs[idx] = { ...db.ktsLogs[idx], ...fields, updatedAt: new Date().toISOString() };
       this.save(db);
-      this.saveToServer();
+      this._pushKtsLogToSupabase(db.ktsLogs[idx]);
       return db.ktsLogs[idx];
     }
     return null;
@@ -1506,7 +1597,7 @@ export const DB = {
     }
 
     this.addSystemLog(`Giao việc KTS: ${newTask.assignerName} -> ${newTask.ktsName} (${newTask.title})`);
-    this.saveToServer();
+    this._pushKtsTaskToSupabase(newTask);
     return newTask;
   },
 
@@ -1529,7 +1620,7 @@ export const DB = {
         });
       }
 
-      this.saveToServer();
+      this._pushKtsTaskToSupabase(db.ktsTasks[idx]);
       return db.ktsTasks[idx];
     }
     return null;
