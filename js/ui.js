@@ -4719,7 +4719,7 @@ export const UI = {
     else if (filterType === 'completed') filtered = tasks.filter(t => t.status === 'completed');
     else if (filterType === 'pending') filtered = tasks.filter(t => t.status !== 'completed');
 
-    const getCountdown = (deadlineStr) => {
+    const getTaskCountdown = (deadlineStr) => {
       if (!deadlineStr) return { label: 'Chưa đặt hạn chót', color: '#64748B', isOverdue: false };
       const d = new Date(deadlineStr);
       const now = new Date();
@@ -4734,15 +4734,33 @@ export const UI = {
       }
 
       const mins = Math.floor(diffMs / (1000 * 60));
-      const hours = Math.floor(mins / 60);
-      const days = Math.floor(hours / 24);
+      const totalHours = Math.floor(mins / 60);
+      const remainingMins = mins % 60;
 
-      if (days === 0) {
-        return { label: `🔥 HÔM NAY · Còn ${hours}h ${mins % 60}p`, color: '#F59E0B', isOverdue: false };
-      } else if (days === 1) {
-        return { label: `🟡 NGÀY MAI · Còn 1d ${hours % 24}h`, color: '#3B82F6', isOverdue: false };
+      const targetYear = d.getFullYear();
+      const targetMonth = d.getMonth();
+      const targetDate = d.getDate();
+
+      const nowYear = now.getFullYear();
+      const nowMonth = now.getMonth();
+      const nowDate = now.getDate();
+
+      const tomorrow = new Date(now);
+      tomorrow.setDate(now.getDate() + 1);
+      const tomYear = tomorrow.getFullYear();
+      const tomMonth = tomorrow.getMonth();
+      const tomDate = tomorrow.getDate();
+
+      const isToday = (targetYear === nowYear && targetMonth === nowMonth && targetDate === nowDate);
+      const isTomorrow = (targetYear === tomYear && targetMonth === tomMonth && targetDate === tomDate);
+
+      if (isToday) {
+        return { label: `🔥 HÔM NAY · Còn ${totalHours}h ${remainingMins}p`, color: '#F59E0B', isOverdue: false };
+      } else if (isTomorrow) {
+        return { label: `🟡 NGÀY MAI · Còn ${totalHours}h ${remainingMins}p`, color: '#3B82F6', isOverdue: false };
       } else {
-        return { label: `🟢 Còn ${days} ngày ${hours % 24}h`, color: '#10B981', isOverdue: false };
+        const days = Math.floor(totalHours / 24);
+        return { label: `🟢 Còn ${days} ngày ${totalHours % 24}h`, color: '#10B981', isOverdue: false };
       }
     };
 
@@ -4775,7 +4793,7 @@ export const UI = {
         ` : `
           <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(320px, 1fr)); gap:14px;">
             ${filtered.map(t => {
-              const cd = getCountdown(t.deadline);
+              const cd = getTaskCountdown(t.deadline);
               const isCompleted = t.status === 'completed';
               const typeMap = {
                 fast_support: { label: '⚡ Vẽ Phản Ứng Nhanh', color: '#8B5CF6' },
@@ -4785,7 +4803,7 @@ export const UI = {
               const tInfo = typeMap[t.taskType] || { label: '🛠️ Khác', color: 'var(--primary)' };
 
               return `
-                <div class="section-card" style="margin-bottom:0; display:flex; flex-direction:column; justify-content:space-between; border-left:4px solid ${isCompleted ? '#10B981' : (cd.isOverdue ? '#EF4444' : tInfo.color)}; relative; overflow:hidden;">
+                <div class="section-card kts-task-card" data-id="${t.id}" style="margin-bottom:0; display:flex; flex-direction:column; justify-content:space-between; border-left:4px solid ${isCompleted ? '#10B981' : (cd.isOverdue ? '#EF4444' : tInfo.color)}; relative; overflow:hidden; cursor:pointer; transition:transform 0.15s, box-shadow 0.15s;" title="Bấm để xem chi tiết và thao tác">
                   <div>
                     <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:8px; margin-bottom:8px;">
                       <span style="font-size:0.68rem; font-weight:800; padding:3px 8px; border-radius:6px; background:${tInfo.color}18; color:${tInfo.color}; border:1px solid ${tInfo.color}40;">
@@ -4815,26 +4833,12 @@ export const UI = {
                         <i class="fas fa-comment-dots" style="color:var(--primary);"></i> "${t.requirement}"
                       </div>
                     ` : ''}
-
-                    <div style="font-size:0.7rem; color:var(--text-muted); margin-bottom:10px;">
-                      <i class="fas fa-user-tie"></i> Người giao: <strong>${t.assignerName || 'Sale'}</strong> · Giao ngày ${fmt.date(t.createdAt)}
-                    </div>
                   </div>
 
-                  <!-- Actions -->
-                  <div style="border-top:1px solid rgba(255,255,255,0.06); padding-top:10px; display:flex; justify-content:space-between; align-items:center; gap:8px;">
-                    <button class="btn-secondary btn-sm btn-detail-task" data-id="${t.id}" style="background:rgba(255,255,255,0.06); border:1px solid var(--border-color); font-weight:700;"><i class="fas fa-history"></i> Log Chi Tiết</button>
-                    ${isCompleted ? `
-                      <div style="font-size:0.75rem; color:#10B981; font-weight:700;"><i class="fas fa-check-double"></i> Đã hoàn thành</div>
-                    ` : `
-                      ${t.status === 'pending' ? `
-                        <button class="btn-secondary btn-sm btn-start-task" data-id="${t.id}" style="background:rgba(59,130,246,0.15); color:#3B82F6; border:1px solid rgba(59,130,246,0.3); font-weight:700;"><i class="fas fa-play"></i> Bắt Đầu</button>
-                      ` : ''}
-                      <button class="btn-primary btn-sm btn-complete-task" data-id="${t.id}" style="background:linear-gradient(135deg, #10B981, #059669); border:none; font-weight:700; flex:1;"><i class="fas fa-check-circle"></i> Nộp Bài</button>
-                    `}
-                    ${(user.role === 'manager' || user.id === t.assignerId) ? `
-                      <button class="btn-icon btn-delete-task" data-id="${t.id}" title="Xóa task" style="color:#EF4444; padding:6px; background:rgba(239,68,68,0.1); border-radius:6px; cursor:pointer;"><i class="fas fa-trash-alt"></i></button>
-                    ` : ''}
+                  <!-- Footer row / Click target -->
+                  <div style="border-top:1px solid rgba(255,255,255,0.06); padding-top:10px; display:flex; justify-content:space-between; align-items:center; font-size:0.72rem;">
+                    <span style="color:var(--text-muted);"><i class="fas fa-user-tie"></i> Người giao: <strong>${t.assignerName || 'Sale'}</strong> · Giao ngày ${fmt.date(t.createdAt)}</span>
+                    <span style="color:var(--primary); font-weight:700;"><i class="fas fa-chevron-right"></i> Xem chi tiết & Log →</span>
                   </div>
                 </div>
               `;
@@ -4851,10 +4855,10 @@ export const UI = {
       });
     });
 
-    // Detail modal listener
-    document.querySelectorAll('.btn-detail-task').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const id = btn.getAttribute('data-id');
+    // Card click listener -> opens detail modal directly
+    document.querySelectorAll('.kts-task-card').forEach(card => {
+      card.addEventListener('click', () => {
+        const id = card.getAttribute('data-id');
         const task = DB.getKtsTasks().find(t => t.id === id);
         if (task) {
           this.openKtsTaskDetailModal(task, user, () => this.renderKtsTasks(user, filterType));
