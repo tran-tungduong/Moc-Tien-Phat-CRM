@@ -379,24 +379,30 @@ export const DB = {
       }
 
       if (notifications) {
-        db.notifications = notifications.map(n => ({
-          id: n.id,
-          userId: n.user_id || '',
-          type: n.type,
-          title: n.title || '',
-          message: n.message || '',
-          targetId: n.target_id || '',
-          contractId: n.contract_id || '',
-          contractCode: n.contract_code || '',
-          customerName: n.customer_name || '',
-          amount: Number(n.amount) || 0,
-          date: n.date || '',
-          note: n.note || '',
-          proofImage: n.proof_image || '',
-          collectorName: n.collector_name || '',
-          status: n.status || 'unread',
-          createdAt: n.created_at
-        }));
+        db.notifications = notifications
+          .filter(n => {
+            if (n.type === 'new_payment' && !n.customer_name && (!n.amount || Number(n.amount) === 0) && !n.collector_name) return false;
+            if (!n.title && !n.message && !n.customer_name && (!n.amount || Number(n.amount) === 0)) return false;
+            return true;
+          })
+          .map(n => ({
+            id: n.id,
+            userId: n.user_id || '',
+            type: n.type,
+            title: n.title || '',
+            message: n.message || '',
+            targetId: n.target_id || '',
+            contractId: n.contract_id || '',
+            contractCode: n.contract_code || '',
+            customerName: n.customer_name || '',
+            amount: Number(n.amount) || 0,
+            date: n.date || '',
+            note: n.note || '',
+            proofImage: n.proof_image || '',
+            collectorName: n.collector_name || '',
+            status: n.status || 'unread',
+            createdAt: n.created_at
+          }));
       }
 
       if (ktsTasks) {
@@ -1209,18 +1215,31 @@ export const DB = {
     return notif;
   },
 
-  getNotifications(status = 'all') {
+  getNotifications(status = 'all', user = null) {
+    if (!user) user = this.getCurrentUser();
     const db = this.load();
-    db.notifications = db.notifications || [];
-    if (status === 'unread') {
-      return db.notifications.filter(n => {
-        if (n.status !== 'unread') return false;
-        const collector = db.users.find(u => u.name === n.collectorName);
-        if (collector && collector.role === 'manager') return false;
+    db.notifications = (db.notifications || []).filter(n => {
+      if (n.type === 'new_payment' && !n.customerName && (!n.amount || n.amount === 0) && !n.collectorName) return false;
+      if (!n.title && !n.message && !n.customerName && (!n.amount || n.amount === 0)) return false;
+      return true;
+    });
+
+    let list = db.notifications;
+    if (user) {
+      list = list.filter(n => {
+        if (n.userId && n.userId !== user.id) return false;
+        if (n.type === 'new_payment') {
+          const collector = db.users.find(u => u.name === n.collectorName);
+          if (collector && collector.role === 'manager' && user.role === 'manager' && collector.id === user.id) return false;
+        }
         return true;
       });
     }
-    return db.notifications;
+
+    if (status === 'unread') {
+      return list.filter(n => n.status === 'unread');
+    }
+    return list;
   },
 
   markNotificationRead(id) {

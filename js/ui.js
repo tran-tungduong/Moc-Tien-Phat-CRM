@@ -1359,46 +1359,59 @@ export const UI = {
     Modal.create('Biểu Đồ Chi Tiết Doanh Thu & Thu Tiền', html);
   },
 
-  openNotificationsModal(user) {
-    const notifs = DB.getNotifications('all');
+  openNotificationsModal(user = null) {
+    if (!user) user = DB.getCurrentUser();
+    const notifs = DB.getNotifications('all', user);
     const unread = notifs.filter(n => n.status === 'unread');
 
     const html = `
       <div style="display:flex; flex-direction:column; gap:12px;">
         <div style="display:flex; justify-content:space-between; align-items:center;">
           <span style="font-size:0.75rem; color:var(--text-muted);">Có ${unread.length} thông báo chưa đọc</span>
-          ${unread.length > 0 ? `<button id="notif-modal-read-all" style="background:rgba(16,185,129,0.15); border:1px solid rgba(16,185,129,0.3); color:#10B981; font-size:0.72rem; font-weight:700; padding:4px 10px; border-radius:6px; cursor:pointer;"><i class="fas fa-check-double"></i> Đọc tất cả</button>` : ''}
+          ${unread.length > 0 ? `<button id="notif-modal-read-all" style="background:rgba(16,185,129,0.15); border:1px solid rgba(16,185,129,0.3); color:#10B981; font-size:0.72rem; font-weight:700; padding:4px 10px; border-radius:6px; cursor:pointer;"><i class="fas fa-check-double"></i> Đã đọc tất cả</button>` : ''}
         </div>
         <div style="display:flex; flex-direction:column; gap:8px; max-height:60vh; overflow-y:auto; padding-right:4px;">
-          ${notifs.length === 0 ? `<div class="empty-state" style="padding:20px;"><i class="fas fa-bell-slash"></i><p>Chưa có thông báo nào.</p></div>` :
-            notifs.map(n => `
-              <div style="background:${n.status === 'unread' ? 'rgba(16,185,129,0.08)' : 'rgba(255,255,255,0.02)'}; border:1px solid ${n.status === 'unread' ? 'rgba(16,185,129,0.3)' : 'var(--border-color)'}; border-radius:10px; padding:10px; font-size:0.8rem;">
-                <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:8px;">
-                  <div style="flex:1;">
-                    <div style="font-weight:700; color:var(--text-primary);">
-                      💰 <span style="color:#3B82F6;">${n.collectorName}</span> vừa thu <span style="color:#10B981; font-weight:800;">${fmt.currency(n.amount)}</span>
-                    </div>
-                    <div style="font-size:0.72rem; color:var(--text-secondary); margin-top:2px;">
-                      Khách hàng: <strong>${n.customerName}</strong> (Mã HĐ: <span style="font-family:monospace; color:var(--primary);">${n.contractCode}</span>) · ${fmt.timeAgo(n.createdAt)}
-                    </div>
-                    ${n.note ? `<div style="font-size:0.7rem; color:var(--text-muted); margin-top:2px;">Ghi chú: ${n.note}</div>` : ''}
-                    ${n.proofImage ? `
-                      <div style="margin-top:6px; display:flex; align-items:center; gap:6px;">
-                        <img src="${n.proofImage}" style="width:48px; height:48px; border-radius:6px; object-fit:cover; border:1px solid #10B981; cursor:zoom-in;" onclick="event.stopPropagation();showPhotoLightbox('${n.proofImage}')" title="Bấm để xem ảnh kiểm chứng">
-                        <span style="font-size:0.7rem; color:#10B981; font-weight:600; cursor:pointer;" onclick="event.stopPropagation();showPhotoLightbox('${n.proofImage}')"><i class="fas fa-image"></i> Xem ảnh kiểm chứng</span>
+          ${notifs.length === 0 ? `<div class="empty-state" style="padding:20px; text-align:center;"><i class="fas fa-bell-slash" style="font-size:2rem; color:var(--text-muted);"></i><p style="margin-top:6px; font-size:0.8rem; color:var(--text-secondary);">Chưa có thông báo nào.</p></div>` :
+            notifs.map(n => {
+              const isPayment = n.type === 'new_payment' || (n.amount > 0 && n.customerName);
+              const icon = isPayment ? '💰' : (n.type.includes('completed') ? '✅' : '🚀');
+              const titleText = isPayment 
+                ? `<span style="color:#3B82F6;">${n.collectorName || 'Nhân viên'}</span> vừa thu <span style="color:#10B981; font-weight:800;">${fmt.currency(n.amount)}</span>`
+                : (n.title || 'Thông báo mới');
+              const subText = isPayment
+                ? `Khách hàng: <strong>${n.customerName || 'Khách hàng'}</strong> (Mã HĐ: <span style="font-family:monospace; color:var(--primary);">${n.contractCode || 'N/A'}</span>)`
+                : (n.message || '');
+
+              return `
+                <div style="background:${n.status === 'unread' ? 'rgba(16,185,129,0.08)' : 'rgba(255,255,255,0.02)'}; border:1px solid ${n.status === 'unread' ? 'rgba(16,185,129,0.3)' : 'var(--border-color)'}; border-radius:10px; padding:10px 12px; font-size:0.8rem;">
+                  <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:8px;">
+                    <div style="flex:1;">
+                      <div style="font-weight:700; color:var(--text-primary);">
+                        ${icon} ${titleText}
                       </div>
-                    ` : ''}
+                      ${subText ? `<div style="font-size:0.75rem; color:var(--text-secondary); margin-top:3px;">${subText}</div>` : ''}
+                      <div style="font-size:0.68rem; color:var(--text-muted); margin-top:3px;">
+                        <i class="fas fa-clock"></i> ${fmt.timeAgo(n.createdAt)}
+                      </div>
+                      ${n.note ? `<div style="font-size:0.7rem; color:var(--text-muted); margin-top:2px;">Ghi chú: ${n.note}</div>` : ''}
+                      ${n.proofImage ? `
+                        <div style="margin-top:6px; display:flex; align-items:center; gap:6px;">
+                          <img src="${n.proofImage}" style="width:48px; height:48px; border-radius:6px; object-fit:cover; border:1px solid #10B981; cursor:zoom-in;" onclick="event.stopPropagation();showPhotoLightbox('${n.proofImage}')" title="Bấm để xem ảnh kiểm chứng">
+                          <span style="font-size:0.7rem; color:#10B981; font-weight:600; cursor:pointer;" onclick="event.stopPropagation();showPhotoLightbox('${n.proofImage}')"><i class="fas fa-image"></i> Xem ảnh kiểm chứng</span>
+                        </div>
+                      ` : ''}
+                    </div>
+                    ${n.status === 'unread' ? `<button class="notif-item-read-btn" data-id="${n.id}" style="background:rgba(16,185,129,0.2); border:1px solid rgba(16,185,129,0.4); color:#10B981; padding:4px 8px; border-radius:6px; font-size:0.7rem; font-weight:700; cursor:pointer;"><i class="fas fa-check"></i> Đã đọc</button>` : ''}
                   </div>
-                  ${n.status === 'unread' ? `<button class="notif-item-read-btn" data-id="${n.id}" style="background:rgba(16,185,129,0.2); border:1px solid rgba(16,185,129,0.4); color:#10B981; padding:4px 8px; border-radius:6px; font-size:0.7rem; font-weight:700; cursor:pointer;"><i class="fas fa-check"></i> Đã đọc</button>` : ''}
                 </div>
-              </div>
-            `).join('')
+              `;
+            }).join('')
           }
         </div>
       </div>
     `;
 
-    const modal = Modal.create('🔔 Thông Báo Khoản Thu Mới', html);
+    const modal = Modal.create('🔔 Trung Tâm Thông Báo', html);
 
     document.getElementById('notif-modal-read-all')?.addEventListener('click', () => {
       DB.markAllNotificationsRead();
