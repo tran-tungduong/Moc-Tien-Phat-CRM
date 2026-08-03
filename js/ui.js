@@ -4586,7 +4586,8 @@ export const UI = {
   },
 
   // ── KTS Task Assignment & Management ─────────────────
-  openAssignKtsTaskForm(lead, user, onSave = null) {
+  openAssignKtsTaskForm(lead, user, onSave = null, editTask = null) {
+    const isEdit = !!editTask;
     const ktsUsers = DB.getUsers().filter(u => u.role === 'kts' || u.id === 'usr_long_tran');
     if (ktsUsers.length === 0) {
       ktsUsers.push({ id: 'usr_long_tran', name: 'Trần Hữu Nhật Long', role: 'kts' });
@@ -4595,7 +4596,15 @@ export const UI = {
     const tomorrow = new Date();
     tomorrow.setDate(tomorrow.getDate() + 1);
     tomorrow.setHours(17, 0, 0, 0);
-    const defaultDeadlineStr = tomorrow.toISOString().slice(0, 16);
+    const toLocalDateTimeValue = (dateValue) => {
+      if (!dateValue) return '';
+      const date = new Date(dateValue);
+      const offset = date.getTimezoneOffset();
+      return new Date(date.getTime() - offset * 60000).toISOString().slice(0, 16);
+    };
+    const defaultDeadlineStr = isEdit
+      ? toLocalDateTimeValue(editTask.deadline)
+      : toLocalDateTimeValue(tomorrow);
 
     const html = `
       <form id="assign-kts-task-form" style="display:flex; flex-direction:column; gap:14px;">
@@ -4607,7 +4616,7 @@ export const UI = {
         <div class="form-group">
           <label class="form-label">Chọn KTS / Người Nhận <span style="color:#EF4444;">*</span></label>
           <select id="kts-assign-user" class="form-select" required>
-            ${ktsUsers.map(u => `<option value="${u.id}" ${u.id === 'usr_long_tran' ? 'selected' : ''}>📐 ${u.name} (${roleLabel(u.role)})</option>`).join('')}
+            ${ktsUsers.map(u => `<option value="${u.id}" ${(isEdit ? u.id === editTask.ktsId : u.id === 'usr_long_tran') ? 'selected' : ''}>📐 ${u.name} (${roleLabel(u.role)})</option>`).join('')}
           </select>
         </div>
 
@@ -4615,9 +4624,9 @@ export const UI = {
           <div class="form-group">
             <label class="form-label">Loại Việc KTS <span style="color:#EF4444;">*</span></label>
             <select id="kts-assign-task-type" class="form-select" required>
-              <option value="fast_support">⚡ Vẽ phản ứng nhanh hỗ trợ Sale tư vấn</option>
-              <option value="technical_draw">📐 Vẽ kết cấu chi tiết</option>
-              <option value="cnc_export">🖨️ Xuất file CNC</option>
+              <option value="fast_support" ${isEdit && editTask.taskType === 'fast_support' ? 'selected' : ''}>⚡ Vẽ phản ứng nhanh hỗ trợ Sale tư vấn</option>
+              <option value="technical_draw" ${isEdit && editTask.taskType === 'technical_draw' ? 'selected' : ''}>📐 Vẽ kết cấu chi tiết</option>
+              <option value="cnc_export" ${isEdit && editTask.taskType === 'cnc_export' ? 'selected' : ''}>🖨️ Xuất file CNC</option>
             </select>
           </div>
 
@@ -4629,22 +4638,22 @@ export const UI = {
 
         <div class="form-group">
           <label class="form-label">Tên Yêu Cầu / Tên Công Việc <span style="color:#EF4444;">*</span></label>
-          <input type="text" id="kts-assign-title" class="form-input" placeholder="Ví dụ: Vẽ 3D phương án bếp màu gỗ phối trắng..." value="Vẽ 3D phương án ${lead.interestedIn || 'nội thất'} cho ${lead.name}" required>
+          <input type="text" id="kts-assign-title" class="form-input" placeholder="Ví dụ: Vẽ 3D phương án bếp màu gỗ phối trắng..." value="${isEdit ? editTask.title : `Vẽ 3D phương án ${lead.interestedIn || 'nội thất'} cho ${lead.name}`}" required>
         </div>
 
         <div class="form-group">
           <label class="form-label">Chi Tiết Yêu Cầu Cho KTS</label>
-          <textarea id="kts-assign-req" class="form-textarea" rows="3" placeholder="Mô tả cụ thể kích thước, màu sắc, vật liệu hoặc yêu cầu từ khách...">${lead.note ? `Ghi chú từ Lead: ${lead.note}` : ''}</textarea>
+          <textarea id="kts-assign-req" class="form-textarea" rows="3" placeholder="Mô tả cụ thể kích thước, màu sắc, vật liệu hoặc yêu cầu từ khách...">${isEdit ? (editTask.requirement || '') : (lead.note ? `Ghi chú từ Lead: ${lead.note}` : '')}</textarea>
         </div>
 
         <div style="display:flex; gap:10px; justify-content:flex-end; margin-top:10px;">
           <button type="button" class="btn-cancel" id="btn-cancel-kts-assign" style="background:rgba(255,255,255,0.06); color:var(--text-secondary); border:1px solid var(--border-color); padding:10px 18px; border-radius:8px; font-weight:600; cursor:pointer;">Hủy</button>
-          <button type="submit" class="btn-primary" style="padding:10px 22px; border-radius:8px; font-weight:700; background:linear-gradient(135deg, #8B5CF6, #6366F1);"><i class="fas fa-paper-plane"></i> Giao Việc Ngay</button>
+          <button type="submit" class="btn-primary" style="padding:10px 22px; border-radius:8px; font-weight:700; background:linear-gradient(135deg, #8B5CF6, #6366F1);"><i class="fas ${isEdit ? 'fa-save' : 'fa-paper-plane'}"></i> ${isEdit ? 'Lưu Thay Đổi' : 'Giao Việc Ngay'}</button>
         </div>
       </form>
     `;
 
-    const modal = Modal.create(`🚀 Giao Việc Cho KTS - ${lead.name}`, html);
+    const modal = Modal.create(`${isEdit ? '✏️ Sửa Công Việc KTS' : '🚀 Giao Việc Cho KTS'} - ${lead.name}`, html);
 
     document.getElementById('btn-cancel-kts-assign')?.addEventListener('click', () => modal.close());
 
@@ -4663,18 +4672,29 @@ export const UI = {
           return;
         }
 
-        DB.addKtsTask({
+        const taskPayload = {
           leadId: lead.id,
           leadName: lead.name + (lead.interestedIn ? ` - ${lead.interestedIn}` : ''),
-          assignerId: user.id,
-          assignerName: user.name,
+          assignerId: isEdit ? editTask.assignerId : user.id,
+          assignerName: isEdit ? editTask.assignerName : user.name,
           ktsId: ktsId,
           ktsName: ktsUser.name,
           taskType: taskType,
           title: title,
           requirement: requirement,
           deadline: new Date(deadline).toISOString()
-        });
+        };
+
+        if (isEdit) {
+          DB.updateKtsTask(editTask.id, taskPayload);
+          DB.addLeadHistory(lead.id, `✏️ Cập nhật việc KTS (${title}) · KTS: ${ktsUser.name} · Hạn: ${fmt.datetime(deadline)}`, user.name);
+          modal.close();
+          Toast.success('Đã cập nhật công việc KTS.');
+          if (onSave) onSave();
+          return;
+        }
+
+        DB.addKtsTask(taskPayload);
 
         DB.addLeadHistory(lead.id, `🚀 Giao việc KTS (${title}) cho ${ktsUser.name} · Hạn: ${fmt.datetime(deadline)}`, user.name);
 
@@ -4801,6 +4821,7 @@ export const UI = {
                 cnc_export: { label: '🖨️ Xuất File CNC', color: '#10B981' }
               };
               const tInfo = typeMap[t.taskType] || { label: '🛠️ Khác', color: 'var(--primary)' };
+              const canManage = user.role === 'manager' || t.assignerId === user.id;
 
               return `
                 <div class="section-card kts-task-card" data-id="${t.id}" style="margin-bottom:0; display:flex; flex-direction:column; justify-content:space-between; border-left:4px solid ${isCompleted ? '#10B981' : (cd.isOverdue ? '#EF4444' : tInfo.color)}; relative; overflow:hidden; cursor:pointer; transition:transform 0.15s, box-shadow 0.15s;" title="Bấm để xem chi tiết và thao tác">
@@ -4836,9 +4857,15 @@ export const UI = {
                   </div>
 
                   <!-- Footer row / Click target -->
-                  <div style="border-top:1px solid rgba(255,255,255,0.06); padding-top:10px; display:flex; justify-content:space-between; align-items:center; font-size:0.72rem;">
+                  <div style="border-top:1px solid rgba(255,255,255,0.06); padding-top:10px; display:flex; justify-content:space-between; align-items:center; gap:10px; font-size:0.72rem;">
                     <span style="color:var(--text-muted);"><i class="fas fa-user-tie"></i> Người giao: <strong>${t.assignerName || 'Sale'}</strong> · Giao ngày ${fmt.date(t.createdAt)}</span>
-                    <span style="color:var(--primary); font-weight:700;"><i class="fas fa-chevron-right"></i> Xem chi tiết & Log →</span>
+                    <div style="display:flex; align-items:center; gap:6px; flex-shrink:0;">
+                      ${canManage ? `
+                        <button type="button" class="btn-edit-kts-task" data-id="${t.id}" title="Sửa công việc" style="width:30px; height:30px; border-radius:7px; border:1px solid rgba(59,130,246,0.3); background:rgba(59,130,246,0.1); color:#3B82F6; cursor:pointer;"><i class="fas fa-pen"></i></button>
+                        <button type="button" class="btn-delete-task" data-id="${t.id}" title="Xóa công việc" style="width:30px; height:30px; border-radius:7px; border:1px solid rgba(239,68,68,0.3); background:rgba(239,68,68,0.1); color:#EF4444; cursor:pointer;"><i class="fas fa-trash-alt"></i></button>
+                      ` : ''}
+                      <span style="color:var(--primary); font-weight:700;"><i class="fas fa-chevron-right"></i> Xem chi tiết & Log →</span>
+                    </div>
                   </div>
                 </div>
               `;
@@ -4898,8 +4925,25 @@ export const UI = {
     });
 
     // Delete task listener
+    document.querySelectorAll('.btn-edit-kts-task').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const id = btn.getAttribute('data-id');
+        const task = DB.getKtsTasks().find(t => t.id === id);
+        if (!task) return;
+        const lead = DB.getLead(task.leadId) || {
+          id: task.leadId,
+          name: (task.leadName || 'Dự án').split(' - ')[0],
+          interestedIn: (task.leadName || '').split(' - ').slice(1).join(' - '),
+          note: ''
+        };
+        this.openAssignKtsTaskForm(lead, user, () => this.renderKtsTasks(user, filterType), task);
+      });
+    });
+
     document.querySelectorAll('.btn-delete-task').forEach(btn => {
-      btn.addEventListener('click', () => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
         const id = btn.getAttribute('data-id');
         this.confirmDelete('Xóa Công Việc KTS', 'Bạn có chắc muốn xóa yêu cầu giao việc này?', () => {
           DB.deleteKtsTask(id);
@@ -5310,4 +5354,3 @@ export const UI = {
     });
   }
 };
-

@@ -768,6 +768,14 @@ export const DB = {
     }
   },
 
+  async _deleteKtsTaskFromSupabase(id) {
+    if (!supabaseClient || !id) return;
+    try {
+      const { error } = await supabaseClient.from('kts_tasks').delete().eq('id', id);
+      if (error) console.error('Delete KTS task error:', error);
+    } catch (err) { console.error('Delete KTS task error:', err); }
+  },
+
   async _pushKtsLogToSupabase(log) {
     if (!supabaseClient || !log) return;
     try {
@@ -1717,9 +1725,11 @@ export const DB = {
   deleteKtsTask(id) {
     const db = this.load();
     if (!db.ktsTasks) return false;
+    const exists = db.ktsTasks.some(t => t.id === id);
+    if (!exists) return false;
     db.ktsTasks = db.ktsTasks.filter(t => t.id !== id);
     this.save(db);
-    this.saveToServer();
+    this._deleteKtsTaskFromSupabase(id);
     return true;
   },
 
