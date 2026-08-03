@@ -1565,5 +1565,22 @@ export const DB = {
     } catch (err) {
       console.error('Failed to initialize Supabase Realtime:', err);
     }
+  },
+
+  addSystemLog(message) {
+    try {
+      const db = this.load();
+      if (!db.systemLogs) db.systemLogs = [];
+      db.systemLogs.unshift({
+        id: 'syslog_' + Date.now(),
+        message: message,
+        createdAt: new Date().toISOString()
+      });
+      // Keep only last 200 system logs
+      if (db.systemLogs.length > 200) db.systemLogs = db.systemLogs.slice(0, 200);
+      localStorage.setItem('mtp_crm_db', JSON.stringify(db));
+    } catch (e) {
+      console.log('[SystemLog]', message);
+    }
   }
 };
