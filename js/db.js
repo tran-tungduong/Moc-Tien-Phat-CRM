@@ -1068,6 +1068,21 @@ export const DB = {
   },
 
   // ── Notifications ──────────────────────────────────────
+  addNotification(notifData) {
+    const db = this.load();
+    db.notifications = db.notifications || [];
+    const notif = {
+      id: 'notif_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
+      status: 'unread',
+      createdAt: new Date().toISOString(),
+      ...notifData
+    };
+    db.notifications.unshift(notif);
+    this.save(db);
+    this._pushNotificationToSupabase(notif);
+    return notif;
+  },
+
   getNotifications(status = 'all') {
     const db = this.load();
     db.notifications = db.notifications || [];
