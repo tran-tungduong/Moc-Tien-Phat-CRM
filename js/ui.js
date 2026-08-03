@@ -4897,13 +4897,13 @@ export const UI = {
     const html = `
       <form id="complete-kts-task-form" style="display:flex; flex-direction:column; gap:14px;">
         <div style="background:rgba(16,185,129,0.1); border:1px solid rgba(16,185,129,0.3); padding:10px 14px; border-radius:10px; font-size:0.82rem;">
-          <div style="font-weight:700; color:#10B981;"><i class="fas fa-check-circle"></i> Bàn Giao Nộp Bài: ${task.title}</div>
-          <div style="color:var(--text-secondary); font-size:0.75rem; margin-top:2px;">Lead: ${task.leadName} · Người nhận: ${task.assignerName}</div>
+          <div style="font-weight:700; color:#10B981;"><i class="fas fa-check-circle"></i> Bàn Giao Hoàn Thành: ${task.title}</div>
+          <div style="color:var(--text-secondary); font-size:0.75rem; margin-top:2px;">Lead: ${task.leadName} · Người giao: ${task.assignerName}</div>
         </div>
 
         <div class="form-group">
           <label class="form-label">Ghi Chú Kết Quả / Khối Lượng Hoàn Thành</label>
-          <input type="text" id="kts-complete-note" class="form-input" placeholder="Ví dụ: Đã xong 3D phối màu gỗ, 14 tấm ván 17mm..." value="Đã hoàn thành bàn giao ${task.title}" required>
+          <input type="text" id="kts-complete-note" class="form-input" placeholder="Ví dụ: Đã xong 3D phối màu gỗ, 14 tấm ván 17mm..." value="Đã hoàn thành ${task.title}" required>
         </div>
 
         <div class="form-group">
@@ -4922,12 +4922,12 @@ export const UI = {
 
         <div style="display:flex; gap:10px; justify-content:flex-end; margin-top:10px;">
           <button type="button" class="btn-cancel" id="btn-cancel-complete-task" style="background:rgba(255,255,255,0.06); color:var(--text-secondary); border:1px solid var(--border-color); padding:10px 18px; border-radius:8px; font-weight:600; cursor:pointer;">Hủy</button>
-          <button type="submit" class="btn-primary" style="padding:10px 22px; border-radius:8px; font-weight:700; background:linear-gradient(135deg, #10B981, #059669);"><i class="fas fa-paper-plane"></i> Nộp Bài & Hoàn Thành</button>
+          <button type="submit" class="btn-primary" style="padding:10px 22px; border-radius:8px; font-weight:700; background:linear-gradient(135deg, #10B981, #059669);"><i class="fas fa-check-circle"></i> Hoàn Thành</button>
         </div>
       </form>
     `;
 
-    const modal = Modal.create(`Nộp Bài Hoàn Thành - ${task.title}`, html);
+    const modal = Modal.create(`Xác Nhận Hoàn Thành - ${task.title}`, html);
     let photoData = '';
 
     const photoInput = document.getElementById('kts-complete-photo-file');
@@ -4974,7 +4974,7 @@ export const UI = {
         userName: user.name
       });
 
-      Toast.success('Đã nộp bài và tự động cập nhật Báo Cáo KTS!');
+      Toast.success('Đã hoàn thành công việc và tự động cập nhật Báo Cáo KTS!');
       modal.close();
       if (onSave) onSave();
     });
@@ -5016,7 +5016,21 @@ export const UI = {
     const assignedTime = freshTask.createdAt ? fmt.datetime(freshTask.createdAt) : 'Chưa ghi nhận';
     const assignerName = freshTask.assignerName || 'Sale / Admin';
     const ktsName = freshTask.ktsName || 'Trần Hữu Nhật Long';
-    const startedTime = freshTask.startedAt ? fmt.datetime(freshTask.startedAt) : (freshTask.status !== 'pending' ? 'Đã tiếp nhận' : null);
+
+    // Resolve exact startedTime timestamp
+    let startedTimeFormatted = null;
+    if (freshTask.startedAt) {
+      startedTimeFormatted = fmt.datetime(freshTask.startedAt);
+    } else if (freshTask.history && freshTask.history.length > 0) {
+      const logItem = freshTask.history.find(h => h.action && (h.action.includes('Tiếp nhận') || h.action.includes('Bắt đầu')));
+      if (logItem && logItem.timestamp) {
+        startedTimeFormatted = fmt.datetime(logItem.timestamp);
+      }
+    }
+    if (!startedTimeFormatted && freshTask.status !== 'pending') {
+      startedTimeFormatted = freshTask.updatedAt ? fmt.datetime(freshTask.updatedAt) : 'Đã tiếp nhận';
+    }
+
     const completedTime = freshTask.completedAt ? fmt.datetime(freshTask.completedAt) : null;
 
     const html = `
@@ -5078,15 +5092,15 @@ export const UI = {
               </div>
             </div>
 
-            <!-- 2. Nhận khi nào -->
+            <!-- 2. Nhận khi nào (HIỆN THỜI GIAN BẤM BẮT ĐẦU LÀM) -->
             <div style="position:relative;">
-              <div style="position:absolute; left:-27px; top:0; width:14px; height:14px; border-radius:50%; background:${startedTime ? '#3B82F6' : '#64748B'}; border:3px solid var(--bg-primary);"></div>
-              <div style="font-size:0.82rem; font-weight:800; color:${startedTime ? 'var(--text-primary)' : 'var(--text-muted)'}; display:flex; justify-content:space-between; align-items:center;">
-                <span>🔵 2. Thời Điểm Tiếp Nhận / Bắt Đầu Làm</span>
-                <span style="font-size:0.72rem; color:${startedTime ? '#3B82F6' : '#64748B'}; font-weight:700;">${startedTime || 'Chưa tiếp nhận'}</span>
+              <div style="position:absolute; left:-27px; top:0; width:14px; height:14px; border-radius:50%; background:${startedTimeFormatted ? '#3B82F6' : '#64748B'}; border:3px solid var(--bg-primary);"></div>
+              <div style="font-size:0.82rem; font-weight:800; color:${startedTimeFormatted ? 'var(--text-primary)' : 'var(--text-muted)'}; display:flex; justify-content:space-between; align-items:center;">
+                <span>🔵 2. Thời Điểm Bắt Đầu Làm</span>
+                <span style="font-size:0.72rem; color:${startedTimeFormatted ? '#3B82F6' : '#64748B'}; font-weight:700;">${startedTimeFormatted || 'Chưa tiếp nhận'}</span>
               </div>
-              <div style="font-size:0.78rem; color:${startedTime ? 'var(--text-secondary)' : 'var(--text-muted)'}; margin-top:2px;">
-                ${startedTime ? `KTS <strong>${ktsName}</strong> đã tiếp nhận và bắt đầu thực hiện.` : '⏳ KTS chưa bấm nút Bắt đầu nhận công việc.'}
+              <div style="font-size:0.78rem; color:${startedTimeFormatted ? 'var(--text-secondary)' : 'var(--text-muted)'}; margin-top:2px;">
+                ${startedTimeFormatted ? `KTS <strong>${ktsName}</strong> đã bấm bắt đầu làm lúc <strong>${startedTimeFormatted}</strong>.` : '⏳ KTS chưa bấm nút Bắt đầu nhận công việc.'}
               </div>
             </div>
 
@@ -5094,15 +5108,15 @@ export const UI = {
             <div style="position:relative;">
               <div style="position:absolute; left:-27px; top:0; width:14px; height:14px; border-radius:50%; background:${completedTime ? '#10B981' : '#64748B'}; border:3px solid var(--bg-primary);"></div>
               <div style="font-size:0.82rem; font-weight:800; color:${completedTime ? '#10B981' : 'var(--text-muted)'}; display:flex; justify-content:space-between; align-items:center;">
-                <span>✅ 3. Thời Điểm Hoàn Thành & Nộp Bài</span>
+                <span>✅ 3. Thời Điểm Hoàn Thành</span>
                 <span style="font-size:0.72rem; color:${completedTime ? '#10B981' : '#64748B'}; font-weight:700;">${completedTime || 'Chưa hoàn thành'}</span>
               </div>
               <div style="font-size:0.78rem; color:${completedTime ? 'var(--text-secondary)' : 'var(--text-muted)'}; margin-top:2px;">
-                ${completedTime ? `KTS <strong>${ktsName}</strong> đã hoàn thành bài vẽ.` : '⏳ Công việc chưa hoàn thành.'}
+                ${completedTime ? `KTS <strong>${ktsName}</strong> đã hoàn thành công việc.` : '⏳ Công việc chưa hoàn thành.'}
               </div>
               ${freshTask.resultNote ? `
                 <div style="font-size:0.75rem; color:#10B981; background:rgba(16,185,129,0.08); border:1px solid rgba(16,185,129,0.2); padding:8px 10px; border-radius:6px; margin-top:6px;">
-                  <strong>Kết quả nộp:</strong> ${freshTask.resultNote}
+                  <strong>Ghi chú hoàn thành:</strong> ${freshTask.resultNote}
                   ${freshTask.resultFileLink ? `<div style="margin-top:4px;"><a href="${freshTask.resultFileLink}" target="_blank" style="color:#3B82F6; text-decoration:underline;"><i class="fas fa-external-link-alt"></i> Mở link file đính kèm</a></div>` : ''}
                 </div>
               ` : ''}
@@ -5138,7 +5152,7 @@ export const UI = {
               <button class="btn-secondary btn-sm" id="btn-detail-start-task" style="background:rgba(59,130,246,0.15); color:#3B82F6; border:1px solid rgba(59,130,246,0.3); font-weight:700; cursor:pointer;"><i class="fas fa-play"></i> Bắt Đầu Làm</button>
             ` : ''}
             ${!isCompleted ? `
-              <button class="btn-primary btn-sm" id="btn-detail-complete-task" style="background:linear-gradient(135deg, #10B981, #059669); border:none; font-weight:700; cursor:pointer;"><i class="fas fa-check-circle"></i> Nộp Bài / Hoàn Thành</button>
+              <button class="btn-primary btn-sm" id="btn-detail-complete-task" style="background:linear-gradient(135deg, #10B981, #059669); border:none; font-weight:700; cursor:pointer;"><i class="fas fa-check-circle"></i> Hoàn Thành</button>
             ` : ''}
           </div>
           <button class="btn-secondary" id="btn-close-detail-modal" style="padding:6px 14px; font-size:0.8rem; border-radius:6px; cursor:pointer;">Đóng</button>

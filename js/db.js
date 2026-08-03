@@ -1643,9 +1643,9 @@ export const DB = {
         fields.completedAt = fields.completedAt || now;
         history.push({
           timestamp: fields.completedAt,
-          action: '✅ Đã nộp bài & Hoàn thành',
+          action: '✅ Đã hoàn thành',
           user: oldTask.ktsName || 'KTS',
-          note: fields.resultNote || fields.completedNote || 'Đã nộp bài hoàn thành'
+          note: fields.resultNote || fields.completedNote || 'Đã hoàn thành công việc'
         });
       }
 
