@@ -4,6 +4,7 @@
 // ═══════════════════════════════════════════════════════════
 
 const DB_KEY = 'mtp_crm_db';
+const SYNC_QUEUE_KEY = 'mtp_crm_sync_queue_v1';
 
 // ─── Supabase Configuration ────────────────────────────────
 const SUPABASE_URL = 'https://gbwmwoceopbzytfgxoax.supabase.co';
@@ -70,6 +71,96 @@ export const PORTFOLIO_CATEGORIES = [
 
 // ─── DB Object ───────────────────────────────────────────
 export const DB = {
+
+  _syncPromise: null,
+  _realtimeSyncTimer: null,
+  _mutationChains: new Map(),
+
+  _getSyncQueue() {
+    try {
+      const value = JSON.parse(localStorage.getItem(SYNC_QUEUE_KEY) || '[]');
+      return Array.isArray(value) ? value : [];
+    } catch {
+      return [];
+    }
+  },
+
+  _saveSyncQueue(queue) {
+    localStorage.setItem(SYNC_QUEUE_KEY, JSON.stringify(queue || []));
+  },
+
+  _queueMutation(mutation) {
+    const id = mutation.id || mutation.payload?.id || 'all';
+    const key = `${mutation.table}:${id}`;
+    const queued = this._getSyncQueue().filter(item => item.key !== key);
+    const entry = {
+      ...mutation,
+      id,
+      key,
+      mutationId: `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+      queuedAt: new Date().toISOString()
+    };
+    queued.push(entry);
+    this._saveSyncQueue(queued);
+    return entry;
+  },
+
+  _removeQueuedMutation(entry) {
+    const queued = this._getSyncQueue().filter(item => item.mutationId !== entry.mutationId);
+    this._saveSyncQueue(queued);
+  },
+
+  async _sendMutation(entry, persistBeforeSend = true) {
+    const queuedEntry = persistBeforeSend ? this._queueMutation(entry) : entry;
+    if (!supabaseClient) return false;
+    const previous = this._mutationChains.get(queuedEntry.key) || Promise.resolve();
+    const current = previous.catch(() => false).then(async () => {
+      try {
+        let result;
+        if (queuedEntry.operation === 'delete') {
+          result = await supabaseClient.from(queuedEntry.table).delete().eq('id', queuedEntry.id);
+        } else {
+          result = await supabaseClient.from(queuedEntry.table).upsert(
+            queuedEntry.payload,
+            { onConflict: queuedEntry.onConflict || 'id' }
+          );
+        }
+        if (result?.error) throw result.error;
+        this._removeQueuedMutation(queuedEntry);
+        return true;
+      } catch (err) {
+        console.error(`Supabase ${queuedEntry.operation} failed on ${queuedEntry.table}:`, err);
+        return false;
+      }
+    });
+    this._mutationChains.set(queuedEntry.key, current);
+    const success = await current;
+    if (this._mutationChains.get(queuedEntry.key) === current) {
+      this._mutationChains.delete(queuedEntry.key);
+    }
+    return success;
+  },
+
+  _upsert(table, payload, options = {}) {
+    const idField = options.idField || 'id';
+    const id = payload?.[idField];
+    if (!id) return Promise.resolve(false);
+    return this._sendMutation({ table, operation: 'upsert', id, payload, onConflict: options.onConflict || idField });
+  },
+
+  _delete(table, id) {
+    if (!id) return Promise.resolve(false);
+    return this._sendMutation({ table, operation: 'delete', id });
+  },
+
+  async _flushSyncQueue() {
+    if (!supabaseClient) return false;
+    const queued = this._getSyncQueue();
+    for (const entry of queued) {
+      await this._sendMutation(entry, false);
+    }
+    return this._getSyncQueue().length === 0;
+  },
 
   // ── Core Storage ──────────────────────────────────────
   load() {
@@ -148,24 +239,19 @@ export const DB = {
       return false;
     }
 
+    if (this._syncPromise) return this._syncPromise;
+    this._syncPromise = (async () => {
     try {
+      // Gửi các thay đổi local còn tồn đọng trước khi tải snapshot mới.
+      // Nếu chưa ghi được thì giữ nguyên cache để tránh mất dữ liệu optimistic.
+      const queueFlushed = await this._flushSyncQueue();
+      if (!queueFlushed) {
+        console.warn('Supabase sync paused: pending mutations are not uploaded yet.');
+        return false;
+      }
+
       // Pull relational tables from Supabase in parallel
-      const [
-        { data: users },
-        { data: leads },
-        { data: leadHistory },
-        { data: leadRevisions },
-        { data: contracts },
-        { data: payments },
-        { data: campaigns },
-        { data: dailyLogs },
-        { data: appointments },
-        { data: portfolio },
-        { data: approvals },
-        { data: notifications },
-        { data: ktsTasks },
-        { data: ktsLogs }
-      ] = await Promise.all([
+      const results = await Promise.all([
         supabaseClient.from('users').select('*'),
         supabaseClient.from('leads').select('*').order('created_at', { ascending: false }),
         supabaseClient.from('lead_history').select('*').order('timestamp', { ascending: true }),
@@ -181,6 +267,11 @@ export const DB = {
         supabaseClient.from('kts_tasks').select('*').order('created_at', { ascending: false }),
         supabaseClient.from('kts_logs').select('*').order('created_at', { ascending: false })
       ]);
+      const tableNames = ['users', 'leads', 'lead_history', 'lead_revisions', 'contracts', 'contract_payments', 'campaigns', 'campaign_daily_logs', 'appointments', 'portfolio', 'approvals', 'notifications', 'kts_tasks', 'kts_logs'];
+      results.forEach((result, index) => {
+        if (result.error) throw new Error(`${tableNames[index]}: ${result.error.message}`);
+      });
+      const [users, leads, leadHistory, leadRevisions, contracts, payments, campaigns, dailyLogs, appointments, portfolio, approvals, notifications, ktsTasks, ktsLogs] = results.map(result => result.data || []);
 
       const db = this.load();
 
@@ -222,11 +313,13 @@ export const DB = {
           }
 
           const history = (leadHistory || []).filter(h => h.lead_id === l.id).map(h => ({
+            eventId: h.event_key || String(h.id),
             timestamp: h.timestamp,
             action: h.action,
             user: h.user_name
           }));
           const revisions = (leadRevisions || []).filter(r => r.lead_id === l.id).map(r => ({
+            eventId: r.event_key || String(r.id),
             revNum: r.rev_num,
             date: r.date,
             note: r.note,
@@ -244,6 +337,7 @@ export const DB = {
             budget: Number(l.budget) || 0,
             note: l.note || '',
             address: l.address || '',
+            homeAddress: l.home_address || '',
             interestedIn: l.interested_in || '',
             nextFollowUp: l.next_follow_up || '',
             surveyBy: l.survey_by || '',
@@ -258,13 +352,6 @@ export const DB = {
           };
         });
 
-        // Retain any local leads not yet present in Supabase response
-        (localDb.leads || []).forEach(localL => {
-          if (!db.leads.some(remL => remL.id === localL.id)) {
-            db.leads.push(localL);
-            this._pushLeadToSupabase(localL);
-          }
-        });
       }
 
       if (contracts) {
@@ -273,6 +360,7 @@ export const DB = {
             id: p.id,
             amount: Number(p.amount) || 0,
             date: p.date,
+            type: p.payment_type || 'installment',
             method: p.method || 'cash',
             collectorName: p.collector_name || '',
             note: p.note || '',
@@ -287,11 +375,13 @@ export const DB = {
             phone: c.phone || '',
             idCard: c.id_card || '',
             address: c.address || '',
+            homeAddress: c.home_address || '',
             items: c.items || '',
             repName: c.rep_name || '',
             value: Number(c.value) || 0,
             signedDate: c.signed_date || '',
             expectedDelivery: c.expected_delivery || '',
+            constructionDays: Number(c.construction_days) || 0,
             stage: c.stage || 'signed',
             assignedTo: c.assigned_to || '',
             note: c.note || '',
@@ -422,6 +512,9 @@ export const DB = {
           startedAt: t.started_at || '',
           completedAt: t.completed_at || '',
           completedNote: t.completed_note || '',
+          resultNote: t.result_note || t.completed_note || '',
+          resultFileLink: t.result_file_link || '',
+          resultImage: t.result_image || '',
           history: Array.isArray(t.history) ? t.history : [],
           createdAt: t.created_at,
           updatedAt: t.updated_at
@@ -435,6 +528,11 @@ export const DB = {
           userName: l.user_name || '',
           projectName: l.project_name || '',
           taskType: l.task_type || '',
+          date: l.date || '',
+          progress: l.progress || '',
+          note: l.note || l.description || '',
+          attachments: l.attachments || '',
+          fileLink: l.file_link || '',
           hoursSpent: Number(l.hours_spent) || 0,
           description: l.description || '',
           filesCount: Number(l.files_count) || 0,
@@ -449,7 +547,11 @@ export const DB = {
     } catch (err) {
       console.error('Supabase sync error:', err);
       return false;
+    } finally {
+      this._syncPromise = null;
     }
+    })();
+    return this._syncPromise;
   },
 
   _addLeadHistory(lead, actionText, userName) {
@@ -461,6 +563,7 @@ export const DB = {
       if (diffMs < 3000) return null; // Prevent duplicate within 3 seconds
     }
     const newH = {
+      eventId: 'hist_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8),
       timestamp: new Date().toISOString(),
       action: actionText,
       user: userName || 'Nhân viên'
@@ -471,9 +574,9 @@ export const DB = {
 
   // Row-level push helpers
   async _pushLeadToSupabase(lead, newHistoryItem = null) {
-    if (!supabaseClient || !lead) return;
+    if (!lead) return;
     try {
-      await supabaseClient.from('leads').upsert({
+      const saved = await this._upsert('leads', {
         id: lead.id,
         name: lead.name,
         phone: lead.phone,
@@ -484,6 +587,7 @@ export const DB = {
         budget: lead.budget,
         note: lead.note,
         address: lead.address,
+        home_address: lead.homeAddress || null,
         interested_in: lead.interestedIn,
         next_follow_up: lead.nextFollowUp || null,
         survey_by: lead.surveyBy || null,
@@ -496,29 +600,31 @@ export const DB = {
       });
 
       if (newHistoryItem) {
-        await supabaseClient.from('lead_history').insert({
+        const historyPayload = {
+          event_key: newHistoryItem.eventId || `hist_${lead.id}_${new Date(newHistoryItem.timestamp || Date.now()).getTime()}`,
           lead_id: lead.id,
           action: newHistoryItem.action,
           user_name: newHistoryItem.user,
           timestamp: newHistoryItem.timestamp || new Date().toISOString()
-        });
+        };
+        await this._upsert('lead_history', historyPayload, { idField: 'event_key' });
       }
+      return saved;
     } catch (err) {
       console.error('Push lead error:', err);
+      return false;
     }
   },
 
   async _deleteLeadFromSupabase(id) {
-    if (!supabaseClient || !id) return;
-    try {
-      await supabaseClient.from('leads').delete().eq('id', id);
-    } catch (err) { console.error('Delete lead error:', err); }
+    if (!id) return;
+    return this._delete('leads', id);
   },
 
   async _pushContractToSupabase(contract) {
-    if (!supabaseClient || !contract) return;
+    if (!contract) return;
     try {
-      await supabaseClient.from('contracts').upsert({
+      return await this._upsert('contracts', {
         id: contract.id,
         code: contract.code,
         lead_id: contract.leadId || null,
@@ -526,11 +632,13 @@ export const DB = {
         phone: contract.phone,
         id_card: contract.idCard,
         address: contract.address,
+        home_address: contract.homeAddress || null,
         items: contract.items,
         rep_name: contract.repName,
         value: contract.value,
         signed_date: contract.signedDate || null,
         expected_delivery: contract.expectedDelivery || null,
+        construction_days: Number(contract.constructionDays) || 0,
         stage: contract.stage,
         assigned_to: contract.assignedTo || null,
         note: contract.note,
@@ -541,20 +649,19 @@ export const DB = {
   },
 
   async _deleteContractFromSupabase(id) {
-    if (!supabaseClient || !id) return;
-    try {
-      await supabaseClient.from('contracts').delete().eq('id', id);
-    } catch (err) { console.error('Delete contract error:', err); }
+    if (!id) return;
+    return this._delete('contracts', id);
   },
 
   async _pushPaymentToSupabase(payment, contractId) {
-    if (!supabaseClient || !payment) return;
+    if (!payment) return;
     try {
-      await supabaseClient.from('contract_payments').upsert({
+      return await this._upsert('contract_payments', {
         id: payment.id,
         contract_id: contractId,
         amount: payment.amount,
         date: payment.date || null,
+        payment_type: payment.type || 'installment',
         method: payment.method || 'cash',
         collector_name: payment.collectorName,
         note: payment.note,
@@ -565,16 +672,14 @@ export const DB = {
   },
 
   async _deletePaymentFromSupabase(paymentId) {
-    if (!supabaseClient || !paymentId) return;
-    try {
-      await supabaseClient.from('contract_payments').delete().eq('id', paymentId);
-    } catch (err) { console.error('Delete payment error:', err); }
+    if (!paymentId) return;
+    return this._delete('contract_payments', paymentId);
   },
 
   async _pushCampaignToSupabase(campaign) {
-    if (!supabaseClient || !campaign) return;
+    if (!campaign) return;
     try {
-      await supabaseClient.from('campaigns').upsert({
+      return await this._upsert('campaigns', {
         id: campaign.id,
         name: campaign.name,
         platform: campaign.platform,
@@ -591,16 +696,14 @@ export const DB = {
   },
 
   async _deleteCampaignFromSupabase(id) {
-    if (!supabaseClient || !id) return;
-    try {
-      await supabaseClient.from('campaigns').delete().eq('id', id);
-    } catch (err) { console.error('Delete campaign error:', err); }
+    if (!id) return;
+    return this._delete('campaigns', id);
   },
 
   async _pushCampaignLogToSupabase(log, campaignId) {
-    if (!supabaseClient || !log) return;
+    if (!log) return;
     try {
-      await supabaseClient.from('campaign_daily_logs').upsert({
+      return await this._upsert('campaign_daily_logs', {
         id: log.id,
         campaign_id: campaignId,
         date: log.date,
@@ -613,16 +716,14 @@ export const DB = {
   },
 
   async _deleteCampaignLogFromSupabase(logId) {
-    if (!supabaseClient || !logId) return;
-    try {
-      await supabaseClient.from('campaign_daily_logs').delete().eq('id', logId);
-    } catch (err) { console.error('Delete campaign log error:', err); }
+    if (!logId) return;
+    return this._delete('campaign_daily_logs', logId);
   },
 
   async _pushAppointmentToSupabase(apt) {
-    if (!supabaseClient || !apt) return;
+    if (!apt) return;
     try {
-      await supabaseClient.from('appointments').upsert({
+      return await this._upsert('appointments', {
         id: apt.id,
         lead_id: apt.leadId || null,
         lead_name: apt.leadName,
@@ -640,16 +741,14 @@ export const DB = {
   },
 
   async _deleteAppointmentFromSupabase(id) {
-    if (!supabaseClient || !id) return;
-    try {
-      await supabaseClient.from('appointments').delete().eq('id', id);
-    } catch (err) { console.error('Delete appointment error:', err); }
+    if (!id) return;
+    return this._delete('appointments', id);
   },
 
   async _pushPortfolioToSupabase(item) {
-    if (!supabaseClient || !item) return;
+    if (!item) return;
     try {
-      await supabaseClient.from('portfolio').upsert({
+      return await this._upsert('portfolio', {
         id: item.id,
         name: item.name,
         category: item.category,
@@ -663,16 +762,14 @@ export const DB = {
   },
 
   async _deletePortfolioFromSupabase(id) {
-    if (!supabaseClient || !id) return;
-    try {
-      await supabaseClient.from('portfolio').delete().eq('id', id);
-    } catch (err) { console.error('Delete portfolio error:', err); }
+    if (!id) return;
+    return this._delete('portfolio', id);
   },
 
   async _pushApprovalToSupabase(app) {
-    if (!supabaseClient || !app) return;
+    if (!app) return;
     try {
-      await supabaseClient.from('approvals').upsert({
+      return await this._upsert('approvals', {
         id: app.id,
         type: app.type,
         target_id: app.targetId,
@@ -692,9 +789,9 @@ export const DB = {
   },
 
   async _pushNotificationToSupabase(notif) {
-    if (!supabaseClient || !notif) return;
+    if (!notif) return;
     try {
-      await supabaseClient.from('notifications').upsert({
+      return await this._upsert('notifications', {
         id: notif.id,
         user_id: notif.userId || null,
         type: notif.type,
@@ -716,7 +813,7 @@ export const DB = {
   },
 
   async _pushKtsTaskToSupabase(task) {
-    if (!supabaseClient || !task) return;
+    if (!task) return;
     const fullPayload = {
       id: task.id,
       lead_id: task.leadId || null,
@@ -740,54 +837,31 @@ export const DB = {
       created_at: task.createdAt,
       updated_at: task.updatedAt || task.createdAt
     };
-
-    const { error } = await supabaseClient.from('kts_tasks').upsert(fullPayload);
-    if (error) {
-      console.warn('Full kts_task upsert returned error, attempting fallback payload:', error.message || error);
-      const basePayload = {
-        id: task.id,
-        lead_id: task.leadId || null,
-        lead_name: task.leadName || null,
-        assigner_id: task.assignerId || null,
-        assigner_name: task.assignerName || null,
-        kts_id: task.ktsId || null,
-        kts_name: task.ktsName || null,
-        task_type: task.taskType || '',
-        title: task.title || '',
-        requirement: task.requirement || null,
-        status: task.status || 'pending',
-        deadline: task.deadline || null,
-        completed_at: task.completedAt || null,
-        completed_note: task.completedNote || task.resultNote || null,
-        created_at: task.createdAt,
-        updated_at: task.updatedAt || task.createdAt
-      };
-      const { error: baseErr } = await supabaseClient.from('kts_tasks').upsert(basePayload);
-      if (baseErr) console.error('Push kts_task fallback failed:', baseErr);
-      else console.log('Push kts_task succeeded using base fields fallback.');
-    }
+    return this._upsert('kts_tasks', fullPayload);
   },
 
   async _deleteKtsTaskFromSupabase(id) {
-    if (!supabaseClient || !id) return;
-    try {
-      const { error } = await supabaseClient.from('kts_tasks').delete().eq('id', id);
-      if (error) console.error('Delete KTS task error:', error);
-    } catch (err) { console.error('Delete KTS task error:', err); }
+    if (!id) return;
+    return this._delete('kts_tasks', id);
   },
 
   async _pushKtsLogToSupabase(log) {
-    if (!supabaseClient || !log) return;
+    if (!log) return;
     try {
-      await supabaseClient.from('kts_logs').upsert({
+      return await this._upsert('kts_logs', {
         id: log.id,
         user_id: log.userId || null,
         user_name: log.userName || null,
         project_name: log.projectName || null,
         task_type: log.taskType || null,
+        date: log.date || null,
+        progress: log.progress || null,
+        note: log.note || log.description || null,
+        attachments: log.attachments || null,
+        file_link: log.fileLink || null,
         hours_spent: log.hoursSpent || 0,
-        description: log.description || null,
-        files_count: log.filesCount || 0,
+        description: log.description || log.note || null,
+        files_count: log.filesCount || (log.attachments ? 1 : 0),
         created_at: log.createdAt,
         updated_at: log.updatedAt || log.createdAt
       });
@@ -901,6 +975,7 @@ export const DB = {
       budget: data.budget || 0,
       note: data.note || '',
       address: data.address || '',
+      homeAddress: data.homeAddress || '',
       interestedIn: data.interestedIn || '',
       nextFollowUp: data.nextFollowUp || '',
       createdAt: new Date().toISOString(),
@@ -987,6 +1062,7 @@ export const DB = {
     const userName = this.getUserById(userId)?.name || 'Nhân viên';
 
     const revisionObj = {
+      eventId: 'rev_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8),
       revNum,
       date: new Date().toISOString(),
       note: noteText || `Sửa thiết kế sơ bộ & báo giá lần ${revNum}`,
@@ -1003,18 +1079,15 @@ export const DB = {
 
     this.save(db);
     this._pushLeadToSupabase(lead, newH);
-    if (supabaseClient) {
-      supabaseClient.from('lead_revisions').insert({
+    this._upsert('lead_revisions', {
+        event_key: revisionObj.eventId,
         lead_id: leadId,
         rev_num: revNum,
         quote_amount: data.quoteAmount || 0,
         note: revisionObj.note,
         user_name: revisionObj.user,
         date: revisionObj.date
-      }).then(({ error }) => {
-        if (error) console.error('Insert lead revision error:', error);
-      });
-    }
+      }, { idField: 'event_key' });
     return lead;
   },
 
@@ -1123,11 +1196,13 @@ export const DB = {
       phone: data.phone || '',
       idCard: data.idCard || '',
       address: data.address || '',
+      homeAddress: data.homeAddress || '',
       items: data.items || '',
       repName: data.repName || 'Tôn Thất Uyên Luận (Giám Đốc)',
       value: data.value || 0,
       signedDate: data.signedDate || new Date().toISOString().split('T')[0],
       expectedDelivery: data.expectedDelivery || '',
+      constructionDays: Number(data.constructionDays) || 0,
       stage: data.stage || 'signed',
       assignedTo: data.assignedTo || userId,
       note: data.note || '',
@@ -1237,6 +1312,7 @@ export const DB = {
       list = list.filter(n => {
         if (n.userId && n.userId !== user.id) return false;
         if (n.type === 'new_payment') {
+          if (user.role !== 'manager' && user.role !== 'accountant') return false;
           const collector = db.users.find(u => u.name === n.collectorName);
           if (collector && collector.role === 'manager' && user.role === 'manager' && collector.id === user.id) return false;
         }
@@ -1264,7 +1340,9 @@ export const DB = {
   markAllNotificationsRead() {
     const db = this.load();
     db.notifications = db.notifications || [];
-    db.notifications.forEach(n => {
+    const user = this.getCurrentUser();
+    const visibleIds = new Set(this.getNotifications('all', user).map(n => n.id));
+    db.notifications.filter(n => visibleIds.has(n.id)).forEach(n => {
       n.status = 'read';
       this._pushNotificationToSupabase(n);
     });
@@ -1616,9 +1694,11 @@ export const DB = {
   deleteKtsLog(id) {
     const db = this.load();
     if (!db.ktsLogs) return false;
+    const exists = db.ktsLogs.some(l => l.id === id);
+    if (!exists) return false;
     db.ktsLogs = db.ktsLogs.filter(l => l.id !== id);
     this.save(db);
-    this.saveToServer();
+    this._delete('kts_logs', id);
     return true;
   },
 
@@ -1743,10 +1823,13 @@ export const DB = {
       }
       this._realtimeChannel = supabaseClient
         .channel('mtp-crm-realtime')
-        .on('postgres_changes', { event: '*', schema: 'public' }, async (payload) => {
+        .on('postgres_changes', { event: '*', schema: 'public' }, (payload) => {
           console.log('⚡ Realtime update received from Supabase:', payload.table, payload.eventType);
-          await this.syncWithServer();
-          if (onDataChange) onDataChange(payload);
+          clearTimeout(this._realtimeSyncTimer);
+          this._realtimeSyncTimer = setTimeout(async () => {
+            const synced = await this.syncWithServer();
+            if (synced && onDataChange) onDataChange(payload);
+          }, 250);
         })
         .subscribe((status) => {
           console.log('Supabase Realtime subscription status:', status);

@@ -24,6 +24,15 @@ document.addEventListener('DOMContentLoaded', () => {
     const user = DB.getCurrentUser();
     if (user) UI.refreshDashboard(user);
   });
+
+  // GitHub Pages can temporarily lose connectivity on mobile devices.
+  // Retry the durable local mutation queue as soon as the connection returns.
+  window.addEventListener('online', () => DB.syncWithServer());
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible' && navigator.onLine) {
+      DB.syncWithServer();
+    }
+  });
 });
 
 function checkSessionAndRoute() {

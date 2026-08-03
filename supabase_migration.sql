@@ -49,12 +49,37 @@ CREATE TABLE IF NOT EXISTS public.kts_logs (
     user_name TEXT,
     project_name TEXT,
     task_type TEXT,
+    date DATE,
+    progress TEXT,
+    note TEXT,
+    attachments TEXT,
+    file_link TEXT,
     hours_spent NUMERIC(5,2) DEFAULT 0,
     description TEXT,
     files_count INT DEFAULT 0,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
+
+-- 3b. Chuẩn hóa các cột đang được ứng dụng sử dụng
+ALTER TABLE public.leads ADD COLUMN IF NOT EXISTS home_address TEXT;
+ALTER TABLE public.contracts ADD COLUMN IF NOT EXISTS home_address TEXT;
+ALTER TABLE public.contracts ADD COLUMN IF NOT EXISTS construction_days INT DEFAULT 0;
+ALTER TABLE public.contract_payments ADD COLUMN IF NOT EXISTS payment_type TEXT DEFAULT 'installment';
+ALTER TABLE public.lead_history ADD COLUMN IF NOT EXISTS event_key TEXT;
+ALTER TABLE public.lead_revisions ADD COLUMN IF NOT EXISTS event_key TEXT;
+ALTER TABLE public.kts_logs ADD COLUMN IF NOT EXISTS date DATE;
+ALTER TABLE public.kts_logs ADD COLUMN IF NOT EXISTS progress TEXT;
+ALTER TABLE public.kts_logs ADD COLUMN IF NOT EXISTS note TEXT;
+ALTER TABLE public.kts_logs ADD COLUMN IF NOT EXISTS attachments TEXT;
+ALTER TABLE public.kts_logs ADD COLUMN IF NOT EXISTS file_link TEXT;
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_lead_history_event_key ON public.lead_history(event_key);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_lead_revisions_event_key ON public.lead_revisions(event_key);
+CREATE INDEX IF NOT EXISTS idx_kts_tasks_status_deadline ON public.kts_tasks(status, deadline);
+CREATE INDEX IF NOT EXISTS idx_kts_tasks_kts ON public.kts_tasks(kts_id);
+CREATE INDEX IF NOT EXISTS idx_kts_logs_user_date ON public.kts_logs(user_id, date);
+CREATE INDEX IF NOT EXISTS idx_notifications_user_status ON public.notifications(user_id, status);
 
 -- 4. Bật RLS cho bảng mới
 ALTER TABLE public.kts_tasks ENABLE ROW LEVEL SECURITY;
@@ -102,3 +127,57 @@ BEGIN
   END IF;
 EXCEPTION WHEN OTHERS THEN NULL;
 END $$;
+
+-- 10. View trích xuất dữ liệu logic cho báo cáo / BI
+CREATE OR REPLACE VIEW public.vw_lead_pipeline WITH (security_invoker = true) AS
+SELECT l.id AS lead_id, l.name AS customer_name, l.phone, l.source, l.stage,
+  l.budget, l.interested_in, l.address AS project_address, l.home_address,
+  l.created_at, l.updated_at, u.id AS sales_id, u.name AS sales_name,
+  c.id AS campaign_id, c.name AS campaign_name, c.platform AS campaign_platform,
+  COUNT(DISTINCT h.id) AS activity_count, COUNT(DISTINCT r.id) AS revision_count,
+  EXTRACT(DAY FROM NOW() - l.created_at)::INT AS age_days
+FROM public.leads l
+LEFT JOIN public.users u ON u.id = l.assigned_to
+LEFT JOIN public.campaigns c ON c.id = l.campaign_id
+LEFT JOIN public.lead_history h ON h.lead_id = l.id
+LEFT JOIN public.lead_revisions r ON r.lead_id = l.id
+GROUP BY l.id, u.id, u.name, c.id, c.name, c.platform;
+
+CREATE OR REPLACE VIEW public.vw_contract_finance WITH (security_invoker = true) AS
+SELECT c.id AS contract_id, c.code AS contract_code, c.customer_name,
+  c.value AS contract_value, COALESCE(SUM(p.amount), 0) AS collected_amount,
+  GREATEST(c.value - COALESCE(SUM(p.amount), 0), 0) AS remaining_amount,
+  CASE WHEN COALESCE(SUM(p.amount), 0) <= 0 THEN 'unpaid'
+       WHEN COALESCE(SUM(p.amount), 0) >= c.value THEN 'paid' ELSE 'partial' END AS payment_status,
+  c.stage, c.signed_date, c.expected_delivery, c.construction_days,
+  u.id AS sales_id, u.name AS sales_name, COUNT(p.id) AS payment_count,
+  MAX(p.date) AS last_payment_date
+FROM public.contracts c
+LEFT JOIN public.contract_payments p ON p.contract_id = c.id
+LEFT JOIN public.users u ON u.id = c.assigned_to
+GROUP BY c.id, u.id, u.name;
+
+CREATE OR REPLACE VIEW public.vw_campaign_performance WITH (security_invoker = true) AS
+SELECT c.id AS campaign_id, c.name AS campaign_name, c.platform, c.status,
+  c.start_date, c.end_date, c.budget,
+  COALESCE(logs.actual_spent, c.spent, 0) AS actual_spent,
+  COALESCE(leads.total_leads, 0) AS total_leads,
+  COALESCE(leads.won_leads, 0) AS won_leads,
+  ROUND(COALESCE(logs.actual_spent, c.spent, 0) / NULLIF(leads.total_leads, 0), 2) AS cost_per_lead,
+  ROUND(100.0 * COALESCE(leads.won_leads, 0) / NULLIF(leads.total_leads, 0), 2) AS conversion_rate_percent
+FROM public.campaigns c
+LEFT JOIN (SELECT campaign_id, SUM(amount) AS actual_spent FROM public.campaign_daily_logs GROUP BY campaign_id) logs ON logs.campaign_id = c.id
+LEFT JOIN (SELECT campaign_id, COUNT(*) AS total_leads, COUNT(*) FILTER (WHERE stage = 'won') AS won_leads FROM public.leads WHERE campaign_id IS NOT NULL GROUP BY campaign_id) leads ON leads.campaign_id = c.id;
+
+CREATE OR REPLACE VIEW public.vw_kts_task_performance WITH (security_invoker = true) AS
+SELECT t.id AS task_id, t.lead_id, t.lead_name, t.task_type, t.title, t.status,
+  t.deadline, t.created_at AS assigned_at, t.started_at, t.completed_at,
+  t.kts_id, t.kts_name, t.assigner_id, t.assigner_name,
+  ROUND(EXTRACT(EPOCH FROM (COALESCE(t.completed_at, NOW()) - t.created_at)) / 3600.0, 2) AS elapsed_hours,
+  CASE WHEN t.completed_at IS NOT NULL THEN t.completed_at > t.deadline ELSE NOW() > t.deadline END AS is_overdue,
+  t.result_note, t.result_file_link
+FROM public.kts_tasks t;
+
+GRANT SELECT ON public.vw_lead_pipeline, public.vw_contract_finance,
+  public.vw_campaign_performance, public.vw_kts_task_performance
+TO anon, authenticated, service_role;
