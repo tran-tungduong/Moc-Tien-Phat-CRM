@@ -711,8 +711,34 @@ export const DB = {
 
   async _pushKtsTaskToSupabase(task) {
     if (!supabaseClient || !task) return;
-    try {
-      await supabaseClient.from('kts_tasks').upsert({
+    const fullPayload = {
+      id: task.id,
+      lead_id: task.leadId || null,
+      lead_name: task.leadName || null,
+      assigner_id: task.assignerId || null,
+      assigner_name: task.assignerName || null,
+      kts_id: task.ktsId || null,
+      kts_name: task.ktsName || null,
+      task_type: task.taskType || '',
+      title: task.title || '',
+      requirement: task.requirement || null,
+      status: task.status || 'pending',
+      deadline: task.deadline || null,
+      started_at: task.startedAt || null,
+      completed_at: task.completedAt || null,
+      completed_note: task.completedNote || task.resultNote || null,
+      result_note: task.resultNote || task.completedNote || null,
+      result_file_link: task.resultFileLink || null,
+      result_image: task.resultImage || null,
+      history: Array.isArray(task.history) ? task.history : [],
+      created_at: task.createdAt,
+      updated_at: task.updatedAt || task.createdAt
+    };
+
+    const { error } = await supabaseClient.from('kts_tasks').upsert(fullPayload);
+    if (error) {
+      console.warn('Full kts_task upsert returned error, attempting fallback payload:', error.message || error);
+      const basePayload = {
         id: task.id,
         lead_id: task.leadId || null,
         lead_name: task.leadName || null,
@@ -725,14 +751,15 @@ export const DB = {
         requirement: task.requirement || null,
         status: task.status || 'pending',
         deadline: task.deadline || null,
-        started_at: task.startedAt || null,
         completed_at: task.completedAt || null,
         completed_note: task.completedNote || task.resultNote || null,
-        history: task.history || [],
         created_at: task.createdAt,
         updated_at: task.updatedAt || task.createdAt
-      });
-    } catch (err) { console.error('Push kts_task error:', err); }
+      };
+      const { error: baseErr } = await supabaseClient.from('kts_tasks').upsert(basePayload);
+      if (baseErr) console.error('Push kts_task fallback failed:', baseErr);
+      else console.log('Push kts_task succeeded using base fields fallback.');
+    }
   },
 
   async _pushKtsLogToSupabase(log) {

@@ -26,12 +26,20 @@ CREATE TABLE IF NOT EXISTS public.kts_tasks (
     started_at TIMESTAMP WITH TIME ZONE,
     completed_at TIMESTAMP WITH TIME ZONE,
     completed_note TEXT,
+    result_note TEXT,
+    result_file_link TEXT,
+    result_image TEXT,
     history JSONB DEFAULT '[]'::jsonb,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
 ALTER TABLE public.kts_tasks ADD COLUMN IF NOT EXISTS started_at TIMESTAMP WITH TIME ZONE;
+ALTER TABLE public.kts_tasks ADD COLUMN IF NOT EXISTS completed_at TIMESTAMP WITH TIME ZONE;
+ALTER TABLE public.kts_tasks ADD COLUMN IF NOT EXISTS completed_note TEXT;
+ALTER TABLE public.kts_tasks ADD COLUMN IF NOT EXISTS result_note TEXT;
+ALTER TABLE public.kts_tasks ADD COLUMN IF NOT EXISTS result_file_link TEXT;
+ALTER TABLE public.kts_tasks ADD COLUMN IF NOT EXISTS result_image TEXT;
 ALTER TABLE public.kts_tasks ADD COLUMN IF NOT EXISTS history JSONB DEFAULT '[]'::jsonb;
 
 -- 3. Tạo bảng kts_logs (nếu chưa có)
