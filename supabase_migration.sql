@@ -1,4 +1,4 @@
-﻿-- ════════════════════════════════════════════════════════════════
+-- ════════════════════════════════════════════════════════════════
 -- MTP CRM - MIGRATION SCRIPT (Chạy lên Supabase hiện có)
 -- Chỉ thêm những gì còn thiếu, KHÔNG xóa data cũ
 -- ════════════════════════════════════════════════════════════════
@@ -47,9 +47,16 @@ CREATE TABLE IF NOT EXISTS public.kts_logs (
 ALTER TABLE public.kts_tasks ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.kts_logs ENABLE ROW LEVEL SECURITY;
 
--- 5. Tạo policy cho bảng mới
-CREATE POLICY IF NOT EXISTS "Allow anon all on kts_tasks" ON public.kts_tasks FOR ALL USING (true);
-CREATE POLICY IF NOT EXISTS "Allow anon all on kts_logs" ON public.kts_logs FOR ALL USING (true);
+-- 5. Tạo policy cho bảng mới (dùng DO block vì PostgreSQL không hỗ trợ CREATE POLICY IF NOT EXISTS)
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'kts_tasks' AND policyname = 'Allow anon all on kts_tasks') THEN
+    CREATE POLICY "Allow anon all on kts_tasks" ON public.kts_tasks FOR ALL USING (true);
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'kts_logs' AND policyname = 'Allow anon all on kts_logs') THEN
+    CREATE POLICY "Allow anon all on kts_logs" ON public.kts_logs FOR ALL USING (true);
+  END IF;
+END $$;
 
 -- 6. Grant quyền truy cập
 GRANT ALL ON public.kts_tasks TO anon, authenticated, service_role;
