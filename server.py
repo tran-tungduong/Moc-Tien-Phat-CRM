@@ -41,6 +41,14 @@ DEFAULT_USERS = [
         "name": "Lê Thị Thu",
         "role": "accountant",
         "avatar": "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=100&auto=format&fit=crop&q=60"
+    },
+    {
+        "id": "usr_long",
+        "username": "long.tran",
+        "password": "123",
+        "name": "Long Trần",
+        "role": "sales",
+        "avatar": ""
     }
 ]
 
@@ -58,6 +66,10 @@ def reset_db():
         "campaigns": [],
         "appointments": [],
         "portfolio": [],
+        "approvals": [],
+        "notifications": [],
+        "ktsLogs": [],
+        "ktsTasks": [],
         "systemLogs": []
     }
     with open(DB_FILE, "w", encoding="utf-8") as f:

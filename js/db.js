@@ -24,7 +24,8 @@ const DEFAULT_USERS = [
   { id: 'usr_luan', username: 'admin', password: '123', name: 'Tôn Thất Uyên Luận', role: 'manager', avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100&auto=format&fit=crop&q=60' },
   { id: 'usr_hai', username: 'hai.ta', password: '123', name: 'Tạ Quốc Hải', role: 'sales', avatar: 'https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?w=100&auto=format&fit=crop&q=60' },
   { id: 'usr_duong', username: 'duong.tran', password: '123', name: 'Trần Tùng Dương', role: 'marketing', avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100&auto=format&fit=crop&q=60' },
-  { id: 'usr_ketoan', username: 'ketoan', password: '123', name: 'Lê Thị Thu', role: 'accountant', avatar: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=100&auto=format&fit=crop&q=60' }
+  { id: 'usr_ketoan', username: 'ketoan', password: '123', name: 'Lê Thị Thu', role: 'accountant', avatar: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=100&auto=format&fit=crop&q=60' },
+  { id: 'usr_long_tran', username: 'long.tran', password: '123', name: 'Trần Hữu Nhật Long', role: 'kts', avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&auto=format&fit=crop&q=60' }
 ];
 
 // Lead stages
@@ -77,7 +78,21 @@ export const DB = {
       if (!raw) return this._defaultDb();
       const db = JSON.parse(raw);
       // Ensure all collections exist
-      if (!db.users || db.users.length === 0) db.users = DEFAULT_USERS;
+      if (!db.users || db.users.length === 0) {
+        db.users = DEFAULT_USERS;
+      } else {
+        // Auto-merge missing default users (e.g. long.tran) into local storage
+        DEFAULT_USERS.forEach(defU => {
+          const idx = db.users.findIndex(u => u.id === defU.id || u.username === defU.username);
+          if (idx === -1) {
+            db.users.push(defU);
+          } else {
+            if (defU.username === 'long.tran') {
+              db.users[idx] = { ...db.users[idx], ...defU };
+            }
+          }
+        });
+      }
       if (!db.leads) db.leads = [];
       if (!db.contracts) db.contracts = [];
       if (!db.campaigns) db.campaigns = [];
@@ -85,6 +100,8 @@ export const DB = {
       if (!db.portfolio) db.portfolio = [];
       if (!db.approvals) db.approvals = [];
       if (!db.notifications) db.notifications = [];
+      if (!db.ktsLogs) db.ktsLogs = [];
+      if (!db.ktsTasks) db.ktsTasks = [];
       if (!db.systemLogs) db.systemLogs = [];
       return db;
     } catch {
@@ -102,6 +119,8 @@ export const DB = {
       portfolio: [],
       approvals: [],
       notifications: [],
+      ktsLogs: [],
+      ktsTasks: [],
       systemLogs: []
     };
   },
@@ -109,8 +128,24 @@ export const DB = {
   save(db) {
     try {
       localStorage.setItem(DB_KEY, JSON.stringify(db));
+      this.saveToServer(db);
     } catch (err) {
       console.error('LocalStorage save error:', err);
+    }
+  },
+
+  async saveToServer(dbData = null) {
+    const origin = window.location.origin;
+    if (origin.startsWith('file:')) return;
+    const data = dbData || this.load();
+    try {
+      await fetch(`${origin}/api/db`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+      });
+    } catch (err) {
+      console.warn('Sync to server error:', err);
     }
   },
 
@@ -165,7 +200,7 @@ export const DB = {
       const db = this.load();
 
       if (users && users.length > 0) {
-        db.users = users.map(u => ({
+        const fetchedUsers = users.map(u => ({
           id: u.id,
           username: u.username,
           password: u.password,
@@ -173,6 +208,12 @@ export const DB = {
           role: u.role,
           avatar: u.avatar
         }));
+        DEFAULT_USERS.forEach(defU => {
+          if (!fetchedUsers.some(u => u.id === defU.id || u.username === defU.username)) {
+            fetchedUsers.push(defU);
+          }
+        });
+        db.users = fetchedUsers;
       }
 
       if (leads) {
@@ -632,7 +673,21 @@ export const DB = {
   // ── Auth ──────────────────────────────────────────────
   login(username, password) {
     const db = this.load();
-    return db.users.find(u => u.username === username && u.password === password) || null;
+    const uName = (username || '').trim();
+    const pWord = (password || '').trim();
+    let user = db.users.find(u => u.username === uName && u.password === pWord);
+    if (!user) {
+      // Fallback check against DEFAULT_USERS if local db was out of sync
+      const defU = DEFAULT_USERS.find(u => u.username === uName && u.password === pWord);
+      if (defU) {
+        if (!db.users.some(u => u.id === defU.id)) {
+          db.users.push(defU);
+          this.save(db);
+        }
+        user = defU;
+      }
+    }
+    return user || null;
   },
 
   getCurrentUser() {
@@ -702,7 +757,7 @@ export const DB = {
       source: data.source || 'other',
       campaignId: data.campaignId || '',
       stage: data.stage || 'new',
-      assignedTo: data.assignedTo !== undefined ? data.assignedTo : userId,
+      assignedTo: (data.assignedTo && data.assignedTo.trim()) ? data.assignedTo : userId,
       budget: data.budget || 0,
       note: data.note || '',
       address: data.address || '',
@@ -758,6 +813,16 @@ export const DB = {
     lead.note = note;
     const userName = this.getUserById(userId)?.name || 'Nhân viên';
     const newH = this._addLeadHistory(lead, `📝 ${note}`, userName);
+    lead.updatedAt = new Date().toISOString();
+    this.save(db);
+    this._pushLeadToSupabase(lead, newH);
+  },
+
+  addLeadHistory(leadId, actionText, userName = 'Nhân viên') {
+    const db = this.load();
+    const lead = db.leads.find(l => l.id === leadId);
+    if (!lead) return;
+    const newH = this._addLeadHistory(lead, actionText, userName);
     lead.updatedAt = new Date().toISOString();
     this.save(db);
     this._pushLeadToSupabase(lead, newH);
@@ -1135,13 +1200,13 @@ export const DB = {
   getAppointments(userId, role) {
     const db = this.load();
     if (!userId || role === 'manager') return db.appointments;
-    if (role === 'sales' || role === 'marketing') {
+    if (role === 'sales' || role === 'marketing' || role === 'kts') {
       return db.appointments.filter(a => {
         if (a.assignedTo === userId || a.createdBy === userId) return true;
         if (a.assignedTo && a.assignedTo !== userId) return false;
         if (a.leadId) {
           const lead = db.leads.find(l => l.id === a.leadId);
-          if (lead && lead.assignedTo === userId) return true;
+          if (lead && (lead.assignedTo === userId || lead.surveyBy === 'Nhật Long' || lead.surveyBy === 'Long')) return true;
         }
         return false;
       });
@@ -1346,6 +1411,124 @@ export const DB = {
     };
   },
 
+  // ── KTS Reports / Tasks Methods ──────────────────────
+  getKtsLogs() {
+    const db = this.load();
+    return db.ktsLogs || [];
+  },
+
+  addKtsLog(logData) {
+    const db = this.load();
+    if (!db.ktsLogs) db.ktsLogs = [];
+    const newLog = {
+      id: 'kts_log_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
+      createdAt: new Date().toISOString(),
+      ...logData
+    };
+    db.ktsLogs.unshift(newLog);
+    this.save(db);
+    this.addSystemLog(`Báo cáo KTS mới: ${newLog.userName} - ${newLog.projectName}`);
+    this.saveToServer();
+    return newLog;
+  },
+
+  updateKtsLog(id, fields) {
+    const db = this.load();
+    if (!db.ktsLogs) db.ktsLogs = [];
+    const idx = db.ktsLogs.findIndex(l => l.id === id);
+    if (idx !== -1) {
+      db.ktsLogs[idx] = { ...db.ktsLogs[idx], ...fields, updatedAt: new Date().toISOString() };
+      this.save(db);
+      this.saveToServer();
+      return db.ktsLogs[idx];
+    }
+    return null;
+  },
+
+  deleteKtsLog(id) {
+    const db = this.load();
+    if (!db.ktsLogs) return false;
+    db.ktsLogs = db.ktsLogs.filter(l => l.id !== id);
+    this.save(db);
+    this.saveToServer();
+    return true;
+  },
+
+  // ── KTS Tasks Methods ──────────────────────────────
+  getKtsTasks(userId = null, role = null) {
+    const db = this.load();
+    const tasks = db.ktsTasks || [];
+    if (!userId || role === 'manager') return tasks;
+    if (role === 'kts') {
+      return tasks.filter(t => t.ktsId === userId || t.ktsId === 'usr_long_tran');
+    }
+    if (role === 'sales') {
+      return tasks.filter(t => t.assignerId === userId);
+    }
+    return tasks;
+  },
+
+  addKtsTask(taskData) {
+    const db = this.load();
+    if (!db.ktsTasks) db.ktsTasks = [];
+    const newTask = {
+      id: 'kts_task_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
+      status: 'pending',
+      createdAt: new Date().toISOString(),
+      ...taskData
+    };
+    db.ktsTasks.unshift(newTask);
+    this.save(db);
+
+    if (newTask.ktsId) {
+      this.addNotification({
+        userId: newTask.ktsId,
+        title: '🚀 Yêu cầu công việc KTS mới!',
+        message: `${newTask.assignerName || 'Sale'} đã giao việc: "${newTask.title}" cho Lead ${newTask.leadName}`,
+        type: 'kts_task',
+        targetId: newTask.id
+      });
+    }
+
+    this.addSystemLog(`Giao việc KTS: ${newTask.assignerName} -> ${newTask.ktsName} (${newTask.title})`);
+    this.saveToServer();
+    return newTask;
+  },
+
+  updateKtsTask(id, fields) {
+    const db = this.load();
+    if (!db.ktsTasks) db.ktsTasks = [];
+    const idx = db.ktsTasks.findIndex(t => t.id === id);
+    if (idx !== -1) {
+      const oldTask = db.ktsTasks[idx];
+      db.ktsTasks[idx] = { ...oldTask, ...fields, updatedAt: new Date().toISOString() };
+      this.save(db);
+
+      if (fields.status === 'completed' && oldTask.status !== 'completed' && oldTask.assignerId) {
+        this.addNotification({
+          userId: oldTask.assignerId,
+          title: '✅ KTS đã hoàn thành công việc!',
+          message: `${oldTask.ktsName || 'KTS'} đã hoàn thành: "${oldTask.title}" (${oldTask.leadName})`,
+          type: 'kts_task_completed',
+          targetId: oldTask.id
+        });
+      }
+
+      this.saveToServer();
+      return db.ktsTasks[idx];
+    }
+    return null;
+  },
+
+  deleteKtsTask(id) {
+    const db = this.load();
+    if (!db.ktsTasks) return false;
+    db.ktsTasks = db.ktsTasks.filter(t => t.id !== id);
+    this.save(db);
+    this.saveToServer();
+    return true;
+  },
+
   // ── Supabase Realtime Subscription ──────────────────
   _realtimeChannel: null,
   initRealtimeSubscription(onDataChange = null) {
@@ -1369,4 +1552,3 @@ export const DB = {
     }
   }
 };
-

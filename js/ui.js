@@ -39,8 +39,8 @@ const fmt = {
   }
 };
 
-const roleLabel = (role) => ({ manager: 'Quản Lý', sales: 'Sale', marketing: 'Marketing', accountant: 'Kế Toán' }[role] || role);
-const roleIcon = (role) => ({ manager: '💼', sales: '🤝', marketing: '📣', accountant: '💰' }[role] || '👤');
+const roleLabel = (role) => ({ manager: 'Quản Lý', sales: 'Sale', marketing: 'Marketing', accountant: 'Kế Toán', kts: 'KTS / Kỹ Thuật' }[role] || role);
+const roleIcon = (role) => ({ manager: '💼', sales: '🤝', marketing: '📣', accountant: '💰', kts: '📐' }[role] || '👤');
 
 const getCountdownInfo = (datetimeStr) => {
   if (!datetimeStr) return { label: '—', color: 'var(--text-muted)', bg: 'rgba(255,255,255,0.05)', border: 'var(--border-color)', icon: '📅' };
@@ -579,11 +579,13 @@ export const UI = {
 
   _getNavItems(user) {
     const all = [
-      { id: 'dashboard', label: 'Tổng Quan', icon: 'fa-home', roles: ['manager', 'sales', 'marketing', 'accountant'] },
+      { id: 'dashboard', label: 'Tổng Quan', icon: 'fa-home', roles: ['manager', 'sales', 'marketing', 'accountant', 'kts'] },
+      { id: 'kts_tasks', label: 'Công Việc KTS', icon: 'fa-tasks', roles: ['manager', 'kts', 'sales'] },
+      { id: 'kts_reports', label: 'Báo Cáo KTS', icon: 'fa-drafting-compass', roles: ['kts'] },
+      { id: 'appointments', label: 'Lịch Hẹn', icon: 'fa-calendar-alt', roles: ['manager', 'sales', 'marketing', 'accountant', 'kts'] },
       { id: 'leads', label: 'Leads', icon: 'fa-user-friends', roles: ['manager', 'sales', 'marketing', 'accountant'] },
       { id: 'contracts', label: 'Hợp Đồng', icon: 'fa-file-contract', roles: ['manager', 'sales', 'accountant'] },
       { id: 'campaigns', label: 'Chiến Dịch', icon: 'fa-bullhorn', roles: ['manager', 'marketing'] },
-      { id: 'appointments', label: 'Lịch Hẹn', icon: 'fa-calendar-alt', roles: ['manager', 'sales', 'marketing', 'accountant'] },
       { id: 'portfolio', label: 'Portfolio', icon: 'fa-images', roles: ['manager', 'sales', 'marketing', 'accountant'] },
       { id: 'kpi', label: 'KPI', icon: 'fa-chart-bar', roles: ['manager', 'sales', 'marketing', 'accountant'] },
     ];
@@ -599,10 +601,12 @@ export const UI = {
     // Render the correct view
     switch (navId) {
       case 'dashboard': this.renderDashboard(user); break;
+      case 'kts_tasks': this.renderKtsTasks(user); break;
+      case 'kts_reports': this.renderKtsReports(user); break;
+      case 'appointments': this.renderAppointments(user); break;
       case 'leads': this.renderLeads(user); break;
       case 'contracts': this.renderContracts(user); break;
       case 'campaigns': this.renderCampaigns(user); break;
-      case 'appointments': this.renderAppointments(user); break;
       case 'portfolio': this.renderPortfolio(user); break;
       case 'kpi': this.renderKPI(user); break;
     }
@@ -802,6 +806,42 @@ export const UI = {
                 <div class="kpi-sub">${analytics.wonLeads} chốt / ${analytics.wonLeads + analytics.lostLeads} kết thúc</div>
               </div>
             </div>
+          ` : user.role === 'kts' ? `
+            ${(() => {
+              const kTasks = DB.getKtsTasks(user.id, user.role);
+              const fastPending = kTasks.filter(t => t.taskType === 'fast_support' && t.status !== 'completed').length;
+              const techPending = kTasks.filter(t => t.taskType === 'technical_draw' && t.status !== 'completed').length;
+              const cncPending = kTasks.filter(t => t.taskType === 'cnc_export' && t.status !== 'completed').length;
+
+              return `
+                <div class="kpi-card" style="border-color:rgba(139,92,246,0.4); cursor:pointer;" onclick="UI.openKtsTaskCategoryModal('fast_support')">
+                  <div class="kpi-icon" style="background:rgba(139,92,246,0.15);color:#8B5CF6;"><i class="fas fa-bolt"></i></div>
+                  <div class="kpi-body">
+                    <div class="kpi-val" style="color:#8B5CF6;">${fastPending}</div>
+                    <div class="kpi-label">⚡ Vẽ Phản Ứng Nhanh</div>
+                    <div class="kpi-sub">Số task còn lại cần vẽ hỗ trợ Sale</div>
+                  </div>
+                </div>
+
+                <div class="kpi-card" style="border-color:rgba(59,130,246,0.4); cursor:pointer;" onclick="UI.openKtsTaskCategoryModal('technical_draw')">
+                  <div class="kpi-icon" style="background:rgba(59,130,246,0.15);color:#3B82F6;"><i class="fas fa-ruler-combined"></i></div>
+                  <div class="kpi-body">
+                    <div class="kpi-val" style="color:#3B82F6;">${techPending}</div>
+                    <div class="kpi-label">📐 Kết Cấu Chi Tiết</div>
+                    <div class="kpi-sub">Số task còn lại cần bóc tách</div>
+                  </div>
+                </div>
+
+                <div class="kpi-card" style="border-color:rgba(16,185,129,0.4); cursor:pointer;" onclick="UI.openKtsTaskCategoryModal('cnc_export')">
+                  <div class="kpi-icon" style="background:rgba(16,185,129,0.15);color:#10B981;"><i class="fas fa-microchip"></i></div>
+                  <div class="kpi-body">
+                    <div class="kpi-val" style="color:#10B981;">${cncPending}</div>
+                    <div class="kpi-label">🖨️ Xuất File CNC</div>
+                    <div class="kpi-sub">Số task còn lại chờ nest & xuất file</div>
+                  </div>
+                </div>
+              `;
+            })()}
           ` : `
             <div class="kpi-card" id="kpi-total-leads" style="border-color:rgba(197,168,128,0.4); cursor:pointer;" title="Bấm để xem biểu đồ chi tiết tổng leads">
               <div class="kpi-icon" style="background:rgba(197,168,128,0.15);color:var(--primary);"><i class="fas fa-user-friends"></i></div>
@@ -888,6 +928,56 @@ export const UI = {
                     </div>
                   `).join('')
                 }
+              </div>
+            </div>
+          ` : user.role === 'kts' ? `
+            <!-- KTS Active Tasks Card (Replaces Pipeline Leads for KTS) -->
+            <div class="section-card" style="margin-bottom:0;">
+              <div class="section-header">
+                <i class="fas fa-tasks" style="color:#8B5CF6;"></i>
+                <span>Các Công Việc Được Giao Cần Làm</span>
+                <button class="btn-link" id="dash-go-kts-tasks">Xem tất cả →</button>
+              </div>
+              <div style="display:flex; flex-direction:column; gap:8px; margin-top:10px;">
+                ${(() => {
+                  const activeKtsTasks = DB.getKtsTasks(user.id, user.role).filter(t => t.status !== 'completed');
+                  if (activeKtsTasks.length === 0) {
+                    return `<div class="empty-state" style="padding:20px; text-align:center;"><i class="fas fa-clipboard-check" style="font-size:2rem; color:var(--text-muted);"></i><p style="margin-top:6px; font-size:0.8rem; color:var(--text-secondary);">Hiện không có công việc nào cần xử lý.</p></div>`;
+                  }
+                  const getCountdown = (deadlineStr) => {
+                    if (!deadlineStr) return { label: 'Chưa đặt hạn', color: '#64748B' };
+                    const diffMs = new Date(deadlineStr).getTime() - new Date().getTime();
+                    if (diffMs <= 0) return { label: '⛔ QUÁ HẠN', color: '#EF4444' };
+                    const mins = Math.floor(diffMs / (1000 * 60));
+                    const hours = Math.floor(mins / 60);
+                    const days = Math.floor(hours / 24);
+                    if (days === 0) return { label: `🔥 Còn ${hours}h ${mins % 60}p`, color: '#F59E0B' };
+                    if (days === 1) return { label: `🟡 Còn 1d ${hours % 24}h`, color: '#3B82F6' };
+                    return { label: `🟢 Còn ${days}d ${hours % 24}h`, color: '#10B981' };
+                  };
+
+                  return activeKtsTasks.slice(0, 5).map(t => {
+                    const cd = getCountdown(t.deadline);
+                    return `
+                      <div class="list-item" style="background:rgba(255,255,255,0.02); border:1px solid var(--border-color); border-radius:10px; padding:10px 12px; border-left:4px solid ${cd.color}; cursor:pointer;" onclick="UI.openKtsTaskCategoryModal('${t.taskType}', DB.getCurrentUser())">
+                        <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:8px;">
+                          <div>
+                            <strong style="color:var(--text-primary); font-size:0.85rem;">${t.title}</strong>
+                            <div style="font-size:0.72rem; color:var(--primary); font-weight:700; margin-top:2px;">
+                              <i class="fas fa-building"></i> ${t.leadName}
+                            </div>
+                            <div style="font-size:0.68rem; color:var(--text-muted); margin-top:2px;">
+                              Giao bởi: ${t.assignerName || 'Sale'}
+                            </div>
+                          </div>
+                          <div style="font-size:0.7rem; font-weight:800; color:${cd.color}; background:${cd.color}15; border:1px solid ${cd.color}35; padding:4px 8px; border-radius:6px; flex-shrink:0;">
+                            ${cd.label}
+                          </div>
+                        </div>
+                      </div>
+                    `;
+                  }).join('');
+                })()}
               </div>
             </div>
           ` : `
@@ -1741,6 +1831,9 @@ export const UI = {
                 <i class="fas fa-file-signature"></i> Lên Hợp Đồng
               </button>
             ` : ''}
+            <button id="drawer-assign-kts-btn" style="flex:1; background:rgba(139,92,246,0.15); border:1px solid rgba(139,92,246,0.4); color:#8B5CF6; border-radius:10px; padding:9px 10px; font-size:0.8rem; font-weight:700; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:6px;">
+              <i class="fas fa-drafting-compass"></i> Giao Việc KTS
+            </button>
             <button id="drawer-edit-lead-btn" style="flex:1; background:rgba(197,168,128,0.12); border:1px solid rgba(197,168,128,0.3); color:var(--primary); border-radius:10px; padding:9px 10px; font-size:0.8rem; font-weight:600; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:6px;">
               <i class="fas fa-edit"></i> Sửa (Duyệt)
             </button>
@@ -1840,6 +1933,12 @@ export const UI = {
         this.renderLeads(user);
       });
     }
+
+    // Assign KTS button
+    document.getElementById('drawer-assign-kts-btn')?.addEventListener('click', () => {
+      modal.close();
+      this.openAssignKtsTaskForm(lead, user, () => this.renderLeads(user));
+    });
 
     // Rollback / Revision button
     document.getElementById('drawer-add-revision-btn')?.addEventListener('click', () => {
@@ -4126,6 +4225,829 @@ export const UI = {
     `;
   },
 
+  // ══════════════════════════════════════════════════════
+  //  10. BÁO CÁO KTS & KỸ THUẬT (Nhật Long)
+  // ══════════════════════════════════════════════════════
+  renderKtsReports(user, filterTaskType = 'all', searchQuery = '') {
+    this._setActiveNav('kts_reports');
+    const body = this._getBody();
+    const allLogs = DB.getKtsLogs();
+
+    // Stats
+    const totalLogs = allLogs.length;
+    const fastSupportCount = allLogs.filter(l => l.taskType === 'fast_support').length;
+    const techDrawCount = allLogs.filter(l => l.taskType === 'technical_draw').length;
+    const cncCount = allLogs.filter(l => l.taskType === 'cnc_export').length;
+
+    // Filter logs
+    let filteredLogs = allLogs;
+    if (filterTaskType !== 'all') {
+      filteredLogs = filteredLogs.filter(l => l.taskType === filterTaskType);
+    }
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase().trim();
+      filteredLogs = filteredLogs.filter(l => 
+        (l.projectName && l.projectName.toLowerCase().includes(q)) ||
+        (l.userName && l.userName.toLowerCase().includes(q)) ||
+        (l.note && l.note.toLowerCase().includes(q))
+      );
+    }
+
+    const taskTypeMap = {
+      fast_support: { label: '⚡ Vẽ phản ứng nhanh (Hỗ trợ Sale)', color: '#8B5CF6', bg: 'rgba(139,92,246,0.15)', icon: '⚡' },
+      technical_draw: { label: '📐 Vẽ kết cấu chi tiết', color: '#3B82F6', bg: 'rgba(59,130,246,0.15)', icon: '📐' },
+      cnc_export: { label: '🖨️ Ra file CNC', color: '#10B981', bg: 'rgba(16,185,129,0.15)', icon: '🖨️' },
+      other: { label: '🛠️ Khác / Phát sinh', color: '#F59E0B', bg: 'rgba(245,158,11,0.15)', icon: '🛠️' }
+    };
+
+    body.innerHTML = `
+      <div class="page-content fade-in">
+        <!-- Header -->
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; margin-bottom:20px;">
+          <div>
+            <h1 class="page-title"><i class="fas fa-drafting-compass" style="color:var(--primary); margin-right:8px;"></i>Báo Cáo Công Việc KTS</h1>
+            <p class="page-subtitle">Quản lý nhật ký bản vẽ hỗ trợ Sale, kết cấu chi tiết và file CNC</p>
+          </div>
+          <button id="btn-create-kts-report" class="btn-primary" style="padding:10px 18px; font-weight:700; border-radius:10px; display:flex; align-items:center; gap:8px;">
+            <i class="fas fa-plus-circle"></i> Báo Cáo Công Việc Mới
+          </button>
+        </div>
+
+        <!-- Stat Cards -->
+        <div class="kpi-grid" style="margin-bottom:20px;">
+          <div class="kpi-card">
+            <div class="kpi-icon" style="background:rgba(197,168,128,0.15); color:var(--primary);"><i class="fas fa-clipboard-list"></i></div>
+            <div class="kpi-body">
+              <div class="kpi-val">${totalLogs}</div>
+              <div class="kpi-label">Tổng Báo Cáo KTS</div>
+            </div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-icon" style="background:rgba(139,92,246,0.15); color:#8B5CF6;"><i class="fas fa-bolt"></i></div>
+            <div class="kpi-body">
+              <div class="kpi-val" style="color:#8B5CF6;">${fastSupportCount}</div>
+              <div class="kpi-label">⚡ Vẽ Phản Ứng Nhanh (Sale)</div>
+            </div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-icon" style="background:rgba(59,130,246,0.15); color:#3B82F6;"><i class="fas fa-ruler-combined"></i></div>
+            <div class="kpi-body">
+              <div class="kpi-val" style="color:#3B82F6;">${techDrawCount}</div>
+              <div class="kpi-label">📐 Vẽ Kết Cấu Chi Tiết</div>
+            </div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-icon" style="background:rgba(16,185,129,0.15); color:#10B981;"><i class="fas fa-microchip"></i></div>
+            <div class="kpi-body">
+              <div class="kpi-val" style="color:#10B981;">${cncCount}</div>
+              <div class="kpi-label">🖨️ Ra File CNC</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Filter & Search Bar -->
+        <div class="section-card" style="margin-bottom:20px; padding:14px 16px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
+            <div style="display:flex; gap:6px; flex-wrap:wrap;">
+              <button class="filter-tab-btn ${filterTaskType === 'all' ? 'active' : ''}" data-type="all">Tất Cả (${totalLogs})</button>
+              <button class="filter-tab-btn ${filterTaskType === 'fast_support' ? 'active' : ''}" data-type="fast_support">⚡ Hỗ Trợ Sale (${fastSupportCount})</button>
+              <button class="filter-tab-btn ${filterTaskType === 'technical_draw' ? 'active' : ''}" data-type="technical_draw">📐 Kết Cấu (${techDrawCount})</button>
+              <button class="filter-tab-btn ${filterTaskType === 'cnc_export' ? 'active' : ''}" data-type="cnc_export">🖨️ File CNC (${cncCount})</button>
+            </div>
+            <div style="position:relative; width:240px;">
+              <input type="text" id="kts-search-input" class="form-input" placeholder="Tìm dự án / nội dung..." value="${searchQuery}" style="padding-left:34px; font-size:0.82rem; height:36px;">
+              <i class="fas fa-search" style="position:absolute; left:12px; top:11px; color:var(--text-muted); font-size:0.8rem;"></i>
+            </div>
+          </div>
+        </div>
+
+        <!-- List / Cards -->
+        <div style="display:flex; flex-direction:column; gap:14px;">
+          ${filteredLogs.length === 0 ? `
+            <div class="empty-state">
+              <div class="empty-icon"><i class="fas fa-drafting-compass"></i></div>
+              <h3>Chưa Có Báo Cáo KTS Nào</h3>
+              <p>Chưa ghi nhận báo cáo công việc thuộc bộ lọc này.</p>
+              <button id="btn-empty-create-kts" class="btn-primary" style="margin-top:12px; padding:8px 16px; font-size:0.85rem;"><i class="fas fa-plus"></i> Tạo Báo Cáo Ngay</button>
+            </div>
+          ` : filteredLogs.map(log => {
+            const meta = taskTypeMap[log.taskType] || taskTypeMap.other;
+            const canEdit = user.role === 'manager' || user.id === log.userId;
+            return `
+              <div class="section-card" style="padding:16px; border-left:4px solid ${meta.color}; position:relative; overflow:hidden;">
+                <div style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:10px; margin-bottom:8px;">
+                  <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+                    <span style="background:${meta.bg}; color:${meta.color}; border:1px solid ${meta.color}40; padding:4px 10px; border-radius:8px; font-size:0.75rem; font-weight:700;">
+                      ${meta.label}
+                    </span>
+                    <h3 style="font-size:1.02rem; font-weight:700; color:var(--text-primary); margin:0;">
+                      🏢 ${log.projectName}
+                    </h3>
+                  </div>
+                  <div style="font-size:0.75rem; color:var(--text-muted); display:flex; align-items:center; gap:8px;">
+                    <span><i class="far fa-calendar-alt"></i> ${fmt.date(log.date)}</span>
+                    ${canEdit ? `
+                      <button class="btn-edit-kts-log" data-id="${log.id}" style="background:none; border:none; color:var(--primary); cursor:pointer; font-size:0.85rem;" title="Chỉnh sửa"><i class="fas fa-edit"></i></button>
+                      <button class="btn-delete-kts-log" data-id="${log.id}" style="background:none; border:none; color:#EF4444; cursor:pointer; font-size:0.85rem;" title="Xóa"><i class="fas fa-trash-alt"></i></button>
+                    ` : ''}
+                  </div>
+                </div>
+
+                <div style="font-size:0.85rem; color:var(--text-secondary); line-height:1.5; margin-bottom:10px; white-space:pre-line;">
+                  ${log.note || 'Không có ghi chú.'}
+                </div>
+
+                <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px; border-top:1px dashed var(--border-color); padding-top:10px; font-size:0.78rem;">
+                  <div style="display:flex; align-items:center; gap:12px; color:var(--text-muted);">
+                    <span>👤 KTS: <strong style="color:var(--text-primary);">${log.userName}</strong></span>
+                    ${log.progress ? `<span style="background:rgba(255,255,255,0.06); padding:2px 8px; border-radius:6px; color:var(--primary); font-weight:600;">📊 Tiến độ: ${log.progress}</span>` : ''}
+                  </div>
+
+                  <div style="display:flex; align-items:center; gap:10px;">
+                    ${log.attachments ? `
+                      <button class="btn-view-kts-img" data-img="${log.attachments}" style="background:rgba(59,130,246,0.15); color:#3B82F6; border:1px solid rgba(59,130,246,0.3); padding:4px 10px; border-radius:6px; cursor:pointer; font-size:0.75rem; font-weight:600; display:flex; align-items:center; gap:5px;">
+                        <i class="fas fa-image"></i> Xem Ảnh Bản Vẽ
+                      </button>
+                    ` : ''}
+                    ${log.fileLink ? `
+                      <a href="${log.fileLink}" target="_blank" style="background:rgba(16,185,129,0.15); color:#10B981; border:1px solid rgba(16,185,129,0.3); padding:4px 10px; border-radius:6px; text-decoration:none; font-size:0.75rem; font-weight:600; display:flex; align-items:center; gap:5px;">
+                        <i class="fas fa-external-link-alt"></i> Mở Link File (Drive/Zalo)
+                      </a>
+                    ` : ''}
+                  </div>
+                </div>
+              </div>
+            `;
+          }).join('')}
+        </div>
+      </div>
+    `;
+
+    // Event listeners
+    document.getElementById('btn-create-kts-report')?.addEventListener('click', () => {
+      this.openKtsReportForm(null, user, () => this.renderKtsReports(user, filterTaskType, searchQuery));
+    });
+    document.getElementById('btn-empty-create-kts')?.addEventListener('click', () => {
+      this.openKtsReportForm(null, user, () => this.renderKtsReports(user, filterTaskType, searchQuery));
+    });
+
+    document.querySelectorAll('.filter-tab-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const type = btn.getAttribute('data-type');
+        this.renderKtsReports(user, type, searchQuery);
+      });
+    });
+
+    document.getElementById('kts-search-input')?.addEventListener('input', (e) => {
+      this.renderKtsReports(user, filterTaskType, e.target.value);
+    });
+
+    document.querySelectorAll('.btn-view-kts-img').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const img = btn.getAttribute('data-img');
+        if (img) showPhotoLightbox(img);
+      });
+    });
+
+    document.querySelectorAll('.btn-edit-kts-log').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const id = btn.getAttribute('data-id');
+        const log = DB.getKtsLogs().find(l => l.id === id);
+        if (log) {
+          this.openKtsReportForm(log, user, () => this.renderKtsReports(user, filterTaskType, searchQuery));
+        }
+      });
+    });
+
+    document.querySelectorAll('.btn-delete-kts-log').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const id = btn.getAttribute('data-id');
+        Modal.confirm('Xóa Báo Cáo KTS', 'Bạn có chắc chắn muốn xóa báo cáo công việc này?', () => {
+          DB.deleteKtsLog(id);
+          Toast.success('Đã xóa báo cáo công việc KTS.');
+          this.renderKtsReports(user, filterTaskType, searchQuery);
+        }, 'danger');
+      });
+    });
+  },
+
+  openKtsReportForm(editData = null, user, onSave = null) {
+    const leads = DB.getLeads();
+    const isEdit = !!editData;
+
+    const html = `
+      <form id="kts-report-form" style="display:flex; flex-direction:column; gap:14px;">
+        <div class="form-group">
+          <label class="form-label">Tên Công Trình / Dự Án <span style="color:#EF4444;">*</span></label>
+          <input type="text" id="kts-project-name" class="form-input" list="kts-leads-datalist" placeholder="Nhập hoặc chọn công trình (VD: Căn hộ Chị Mai, Tủ Bếp Chú Cường...)" value="${editData?.projectName || ''}" required>
+          <datalist id="kts-leads-datalist">
+            ${leads.map(l => `<option value="${l.name} - ${l.interestedIn || 'Nội thất'}"></option>`).join('')}
+          </datalist>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Loại Công Việc KTS <span style="color:#EF4444;">*</span></label>
+            <select id="kts-task-type" class="form-select" required>
+              <option value="fast_support" ${editData?.taskType === 'fast_support' ? 'selected' : ''}>⚡ Vẽ phản ứng nhanh hỗ trợ Sale tư vấn</option>
+              <option value="technical_draw" ${editData?.taskType === 'technical_draw' || !editData ? 'selected' : ''}>📐 Vẽ kết cấu chi tiết</option>
+              <option value="cnc_export" ${editData?.taskType === 'cnc_export' ? 'selected' : ''}>🖨️ Ra file CNC</option>
+              <option value="other" ${editData?.taskType === 'other' ? 'selected' : ''}>🛠️ Khác / Phát sinh</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Ngày Báo Cáo <span style="color:#EF4444;">*</span></label>
+            <input type="date" id="kts-date" class="form-input" value="${editData?.date || new Date().toISOString().split('T')[0]}" required>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Tiến Độ / Khối Lượng Hoàn Thành</label>
+          <input type="text" id="kts-progress" class="form-input" placeholder="Ví dụ: 100%, Đã vẽ xong 3D, 14 tấm 17mm..." value="${editData?.progress || ''}">
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Nội Dung Chi Tiết / Ghi Chú</label>
+          <textarea id="kts-note" class="form-textarea" rows="3" placeholder="Mô tả công việc đã xử lý, yêu cầu từ Sale hoặc xưởng...">${editData?.note || ''}</textarea>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Đính Kèm Ảnh Bản Vẽ / 3D (Nếu có)</label>
+          <div style="display:flex; gap:10px; align-items:center;">
+            <input type="file" id="kts-photo-file" accept="image/*" style="display:none;">
+            <button type="button" id="btn-upload-kts-photo" style="background:rgba(255,255,255,0.06); border:1px dashed var(--border-color); color:var(--text-primary); border-radius:8px; padding:10px 14px; font-size:0.82rem; font-weight:600; cursor:pointer; display:flex; align-items:center; gap:6px;">
+              <i class="fas fa-camera" style="color:var(--primary);"></i> Chọn Ảnh Bản Vẽ
+            </button>
+            <div id="kts-photo-preview" style="display:flex; align-items:center; gap:8px;">
+              ${editData?.attachments ? `<img src="${editData.attachments}" style="width:40px;height:40px;border-radius:6px;object-fit:cover;border:1px solid var(--primary);">` : ''}
+            </div>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Đường Dẫn File Dự Án (Google Drive / Zalo / Dropbox)</label>
+          <input type="url" id="kts-file-link" class="form-input" placeholder="https://drive.google.com/..." value="${editData?.fileLink || ''}">
+        </div>
+
+        <div style="display:flex; gap:10px; justify-content:flex-end; margin-top:10px;">
+          <button type="button" class="btn-cancel" id="btn-cancel-kts-form" style="background:rgba(255,255,255,0.06); color:var(--text-secondary); border:1px solid var(--border-color); padding:10px 18px; border-radius:8px; font-weight:600; cursor:pointer;">Hủy</button>
+          <button type="submit" class="btn-primary" style="padding:10px 22px; border-radius:8px; font-weight:700;"><i class="fas fa-save"></i> ${isEdit ? 'Cập Nhật' : 'Lưu Báo Cáo'}</button>
+        </div>
+      </form>
+    `;
+
+    const drawer = Modal.create(isEdit ? 'Chỉnh Sửa Báo Cáo KTS' : 'Tạo Báo Cáo Công Việc KTS', html);
+
+    let photoData = editData?.attachments || '';
+
+    const photoInput = document.getElementById('kts-photo-file');
+    document.getElementById('btn-upload-kts-photo').addEventListener('click', () => photoInput.click());
+    photoInput.addEventListener('change', async (e) => {
+      if (e.target.files && e.target.files[0]) {
+        try {
+          Toast.info('Đang xử lý ảnh...');
+          photoData = await compressImage(e.target.files[0], 1000, 0.75);
+          document.getElementById('kts-photo-preview').innerHTML = `<img src="${photoData}" style="width:40px;height:40px;border-radius:6px;object-fit:cover;border:1px solid var(--primary);"><span style="font-size:0.75rem; color:#10B981;">Đã chọn ảnh</span>`;
+          Toast.success('Đã tải ảnh bản vẽ.');
+        } catch (err) {
+          Toast.error('Không thể xử lý ảnh này.');
+        }
+      }
+    });
+
+    document.getElementById('btn-cancel-kts-form').addEventListener('click', () => drawer.close());
+
+    document.getElementById('kts-report-form').addEventListener('submit', (e) => {
+      e.preventDefault();
+      const projectName = document.getElementById('kts-project-name').value.trim();
+      const taskType = document.getElementById('kts-task-type').value;
+      const date = document.getElementById('kts-date').value;
+      const progress = document.getElementById('kts-progress').value.trim();
+      const note = document.getElementById('kts-note').value.trim();
+      const fileLink = document.getElementById('kts-file-link').value.trim();
+
+      if (!projectName) {
+        Toast.error('Vui lòng nhập tên công trình.');
+        return;
+      }
+
+      const logPayload = {
+        projectName,
+        taskType,
+        date,
+        progress,
+        note,
+        attachments: photoData,
+        fileLink,
+        userId: isEdit ? editData.userId : user.id,
+        userName: isEdit ? editData.userName : user.name
+      };
+
+      if (isEdit) {
+        DB.updateKtsLog(editData.id, logPayload);
+        Toast.success('Đã cập nhật báo cáo KTS.');
+      } else {
+        DB.addKtsLog(logPayload);
+        Toast.success('Đã thêm báo cáo công việc KTS mới.');
+      }
+
+      drawer.close();
+      if (onSave) onSave();
+    });
+  },
+
+  // ── KTS Task Assignment & Management ─────────────────
+  openAssignKtsTaskForm(lead, user, onSave = null) {
+    const ktsUsers = DB.getUsers().filter(u => u.role === 'kts' || u.id === 'usr_long_tran');
+    if (ktsUsers.length === 0) {
+      ktsUsers.push({ id: 'usr_long_tran', name: 'Trần Hữu Nhật Long', role: 'kts' });
+    }
+
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    tomorrow.setHours(17, 0, 0, 0);
+    const defaultDeadlineStr = tomorrow.toISOString().slice(0, 16);
+
+    const html = `
+      <form id="assign-kts-task-form" style="display:flex; flex-direction:column; gap:14px;">
+        <div style="background:rgba(139,92,246,0.1); border:1px solid rgba(139,92,246,0.3); padding:10px 14px; border-radius:10px; font-size:0.82rem;">
+          <div style="font-weight:700; color:#8B5CF6;"><i class="fas fa-building"></i> Công trình / Lead: ${lead.name}</div>
+          <div style="color:var(--text-secondary); font-size:0.75rem; margin-top:2px;">${lead.interestedIn || 'Nội thất'} ${lead.address ? `· ${lead.address}` : ''}</div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Chọn KTS / Người Nhận <span style="color:#EF4444;">*</span></label>
+          <select id="kts-assign-user" class="form-select" required>
+            ${ktsUsers.map(u => `<option value="${u.id}" ${u.id === 'usr_long_tran' ? 'selected' : ''}>📐 ${u.name} (${roleLabel(u.role)})</option>`).join('')}
+          </select>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Loại Việc KTS <span style="color:#EF4444;">*</span></label>
+            <select id="kts-assign-task-type" class="form-select" required>
+              <option value="fast_support">⚡ Vẽ phản ứng nhanh hỗ trợ Sale tư vấn</option>
+              <option value="technical_draw">📐 Vẽ kết cấu chi tiết</option>
+              <option value="cnc_export">🖨️ Xuất file CNC</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Hạn Hoàn Thành (Deadline) <span style="color:#EF4444;">*</span></label>
+            <input type="datetime-local" id="kts-assign-deadline" class="form-input" value="${defaultDeadlineStr}" required>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Tên Yêu Cầu / Tên Công Việc <span style="color:#EF4444;">*</span></label>
+          <input type="text" id="kts-assign-title" class="form-input" placeholder="Ví dụ: Vẽ 3D phương án bếp màu gỗ phối trắng..." value="Vẽ 3D phương án ${lead.interestedIn || 'nội thất'} cho ${lead.name}" required>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Chi Tiết Yêu Cầu Cho KTS</label>
+          <textarea id="kts-assign-req" class="form-textarea" rows="3" placeholder="Mô tả cụ thể kích thước, màu sắc, vật liệu hoặc yêu cầu từ khách...">${lead.note ? `Ghi chú từ Lead: ${lead.note}` : ''}</textarea>
+        </div>
+
+        <div style="display:flex; gap:10px; justify-content:flex-end; margin-top:10px;">
+          <button type="button" class="btn-cancel" id="btn-cancel-kts-assign" style="background:rgba(255,255,255,0.06); color:var(--text-secondary); border:1px solid var(--border-color); padding:10px 18px; border-radius:8px; font-weight:600; cursor:pointer;">Hủy</button>
+          <button type="submit" class="btn-primary" style="padding:10px 22px; border-radius:8px; font-weight:700; background:linear-gradient(135deg, #8B5CF6, #6366F1);"><i class="fas fa-paper-plane"></i> Giao Việc Ngay</button>
+        </div>
+      </form>
+    `;
+
+    const modal = Modal.create(`🚀 Giao Việc Cho KTS - ${lead.name}`, html);
+
+    document.getElementById('btn-cancel-kts-assign')?.addEventListener('click', () => modal.close());
+
+    document.getElementById('assign-kts-task-form')?.addEventListener('submit', (e) => {
+      e.preventDefault();
+      try {
+        const ktsId = document.getElementById('kts-assign-user').value;
+        const ktsUser = DB.getUserById(ktsId) || { name: 'Trần Hữu Nhật Long' };
+        const taskType = document.getElementById('kts-assign-task-type').value;
+        const deadline = document.getElementById('kts-assign-deadline').value;
+        const title = document.getElementById('kts-assign-title').value.trim();
+        const requirement = document.getElementById('kts-assign-req').value.trim();
+
+        if (!title || !deadline) {
+          Toast.error('Vui lòng điền tiêu đề và hạn chót hoàn thành.');
+          return;
+        }
+
+        DB.addKtsTask({
+          leadId: lead.id,
+          leadName: lead.name + (lead.interestedIn ? ` - ${lead.interestedIn}` : ''),
+          assignerId: user.id,
+          assignerName: user.name,
+          ktsId: ktsId,
+          ktsName: ktsUser.name,
+          taskType: taskType,
+          title: title,
+          requirement: requirement,
+          deadline: new Date(deadline).toISOString()
+        });
+
+        DB.addLeadHistory(lead.id, `🚀 Giao việc KTS (${title}) cho ${ktsUser.name} · Hạn: ${fmt.datetime(deadline)}`, user.name);
+
+        modal.close();
+        Toast.success(`🚀 Đã giao việc thành công cho KTS ${ktsUser.name}!`);
+
+        const successModal = Modal.create(`🚀 Giao Việc Thành Công!`, `
+          <div style="text-align:center; padding:16px 8px;">
+            <div style="width:64px; height:64px; border-radius:50%; background:rgba(16,185,129,0.15); border:2.5px solid #10B981; color:#10B981; display:flex; align-items:center; justify-content:center; margin:0 auto 14px; font-size:2rem;">
+              <i class="fas fa-check"></i>
+            </div>
+            <h3 style="color:var(--text-primary); margin-bottom:8px; font-size:1.15rem; font-weight:800;">Đã Giao Việc Thành Công!</h3>
+            <div style="background:rgba(255,255,255,0.03); border:1px solid var(--border-color); border-radius:10px; padding:12px; margin-bottom:16px; text-align:left; font-size:0.82rem;">
+              <div style="font-weight:700; color:var(--primary); margin-bottom:4px;"><i class="fas fa-tasks"></i> ${title}</div>
+              <div style="color:var(--text-secondary); margin-bottom:2px;"><i class="fas fa-building"></i> Lead: <strong>${lead.name}</strong></div>
+              <div style="color:var(--text-secondary); margin-bottom:2px;"><i class="fas fa-user-tag"></i> KTS nhận việc: <strong style="color:#8B5CF6;">${ktsUser.name}</strong></div>
+              <div style="color:#F59E0B; font-weight:700; margin-top:6px;"><i class="fas fa-clock"></i> Hạn hoàn thành: ${fmt.datetime(deadline)}</div>
+            </div>
+            <button id="btn-close-assign-success" class="btn-primary" style="padding:10px 28px; font-weight:700; border-radius:10px; background:linear-gradient(135deg, #10B981, #059669); font-size:0.88rem; cursor:pointer;"><i class="fas fa-check-circle"></i> Đã Hiểu</button>
+          </div>
+        `);
+
+        document.getElementById('btn-close-assign-success')?.addEventListener('click', () => successModal.close());
+
+        if (onSave) onSave();
+      } catch (err) {
+        console.error('Error assigning KTS task:', err);
+        Toast.error('Đã xảy ra lỗi khi giao việc: ' + err.message);
+      }
+    });
+  },
+
+  renderKtsTasks(user, filterType = 'all') {
+    this._setActiveNav('kts_tasks');
+    const body = this._getBody();
+    const tasks = DB.getKtsTasks(user.id, user.role);
+
+    let filtered = tasks;
+    if (filterType === 'fast_support') filtered = tasks.filter(t => t.taskType === 'fast_support');
+    else if (filterType === 'technical_draw') filtered = tasks.filter(t => t.taskType === 'technical_draw');
+    else if (filterType === 'cnc_export') filtered = tasks.filter(t => t.taskType === 'cnc_export');
+    else if (filterType === 'completed') filtered = tasks.filter(t => t.status === 'completed');
+    else if (filterType === 'pending') filtered = tasks.filter(t => t.status !== 'completed');
+
+    const getCountdown = (deadlineStr) => {
+      if (!deadlineStr) return { label: 'Chưa đặt hạn chót', color: '#64748B', isOverdue: false };
+      const d = new Date(deadlineStr);
+      const now = new Date();
+      const diffMs = d.getTime() - now.getTime();
+
+      if (diffMs <= 0) {
+        const overdueMinutes = Math.abs(Math.floor(diffMs / (1000 * 60)));
+        const overdueHours = Math.floor(overdueMinutes / 60);
+        const overdueDays = Math.floor(overdueHours / 24);
+        let text = overdueDays > 0 ? `${overdueDays}d ${overdueHours % 24}h` : (overdueHours > 0 ? `${overdueHours}h ${overdueMinutes % 60}m` : `${overdueMinutes}m`);
+        return { label: `⛔ QUÁ HẠN ${text}`, color: '#EF4444', isOverdue: true };
+      }
+
+      const mins = Math.floor(diffMs / (1000 * 60));
+      const hours = Math.floor(mins / 60);
+      const days = Math.floor(hours / 24);
+
+      if (days === 0) {
+        return { label: `🔥 HÔM NAY · Còn ${hours}h ${mins % 60}p`, color: '#F59E0B', isOverdue: false };
+      } else if (days === 1) {
+        return { label: `🟡 NGÀY MAI · Còn 1d ${hours % 24}h`, color: '#3B82F6', isOverdue: false };
+      } else {
+        return { label: `🟢 Còn ${days} ngày ${hours % 24}h`, color: '#10B981', isOverdue: false };
+      }
+    };
+
+    body.innerHTML = `
+      <div class="page-content fade-in">
+        <div class="page-title-row">
+          <h2 class="page-title"><i class="fas fa-tasks"></i> Quản Lý Công Việc KTS</h2>
+          ${(user.role === 'manager' || user.role === 'sales') ? `
+            <button class="btn-primary btn-sm" id="btn-kts-task-assign-modal" style="background:linear-gradient(135deg, #8B5CF6, #6366F1); border:none;"><i class="fas fa-plus"></i> Giao Việc Cho KTS</button>
+          ` : ''}
+        </div>
+
+        <!-- Filter Tabs -->
+        <div class="filter-tabs" style="margin-bottom:16px;">
+          <button class="tab-btn ${filterType === 'all' ? 'active' : ''}" data-type="all">Tất Cả (${tasks.length})</button>
+          <button class="tab-btn ${filterType === 'pending' ? 'active' : ''}" data-type="pending">⏳ Đang Xử Lý (${tasks.filter(t => t.status !== 'completed').length})</button>
+          <button class="tab-btn ${filterType === 'fast_support' ? 'active' : ''}" data-type="fast_support">⚡ Vẽ Phản Ứng Nhanh (${tasks.filter(t => t.taskType === 'fast_support').length})</button>
+          <button class="tab-btn ${filterType === 'technical_draw' ? 'active' : ''}" data-type="technical_draw">📐 Kết Cấu Chi Tiết (${tasks.filter(t => t.taskType === 'technical_draw').length})</button>
+          <button class="tab-btn ${filterType === 'cnc_export' ? 'active' : ''}" data-type="cnc_export">🖨️ Xuất File CNC (${tasks.filter(t => t.taskType === 'cnc_export').length})</button>
+          <button class="tab-btn ${filterType === 'completed' ? 'active' : ''}" data-type="completed">✅ Đã Hoàn Thành (${tasks.filter(t => t.status === 'completed').length})</button>
+        </div>
+
+        <!-- Task List -->
+        ${filtered.length === 0 ? `
+          <div class="empty-state" style="padding:40px 20px; text-align:center;">
+            <i class="fas fa-clipboard-check" style="font-size:2.5rem; color:var(--text-muted); margin-bottom:12px;"></i>
+            <div style="font-size:0.95rem; font-weight:700; color:var(--text-secondary);">Chưa có công việc nào trong danh mục này</div>
+            <div style="font-size:0.8rem; color:var(--text-muted); margin-top:4px;">Các công việc được Admin / Sale giao sẽ tự động xuất hiện tại đây.</div>
+          </div>
+        ` : `
+          <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(320px, 1fr)); gap:14px;">
+            ${filtered.map(t => {
+              const cd = getCountdown(t.deadline);
+              const isCompleted = t.status === 'completed';
+              const typeMap = {
+                fast_support: { label: '⚡ Vẽ Phản Ứng Nhanh', color: '#8B5CF6' },
+                technical_draw: { label: '📐 Vẽ Kết Cấu Chi Tiết', color: '#3B82F6' },
+                cnc_export: { label: '🖨️ Xuất File CNC', color: '#10B981' }
+              };
+              const tInfo = typeMap[t.taskType] || { label: '🛠️ Khác', color: 'var(--primary)' };
+
+              return `
+                <div class="section-card" style="margin-bottom:0; display:flex; flex-direction:column; justify-content:space-between; border-left:4px solid ${isCompleted ? '#10B981' : (cd.isOverdue ? '#EF4444' : tInfo.color)}; relative; overflow:hidden;">
+                  <div>
+                    <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:8px; margin-bottom:8px;">
+                      <span style="font-size:0.68rem; font-weight:800; padding:3px 8px; border-radius:6px; background:${tInfo.color}18; color:${tInfo.color}; border:1px solid ${tInfo.color}40;">
+                        ${tInfo.label}
+                      </span>
+                      <span style="font-size:0.68rem; font-weight:800; padding:3px 8px; border-radius:6px; background:${isCompleted ? 'rgba(16,185,129,0.15)' : 'rgba(245,158,11,0.15)'}; color:${isCompleted ? '#10B981' : '#F59E0B'};">
+                        ${isCompleted ? '✅ ĐÃ HOÀN THÀNH' : (t.status === 'in_progress' ? '🔵 ĐANG THỰC HIỆN' : '🟡 CHỜ KTS')}
+                      </span>
+                    </div>
+
+                    <div style="font-size:0.92rem; font-weight:800; color:var(--text-primary); margin-bottom:4px; line-height:1.3;">
+                      ${t.title}
+                    </div>
+
+                    <div style="font-size:0.75rem; color:var(--primary); font-weight:700; margin-bottom:8px;">
+                      <i class="fas fa-building"></i> ${t.leadName || 'Dự án'}
+                    </div>
+
+                    <!-- Countdown Box -->
+                    <div style="background:${isCompleted ? 'rgba(16,185,129,0.08)' : (cd.isOverdue ? 'rgba(239,68,68,0.1)' : 'rgba(255,255,255,0.04)')}; border:1px solid ${isCompleted ? 'rgba(16,185,129,0.3)' : (cd.isOverdue ? 'rgba(239,68,68,0.3)' : 'var(--border-color)')}; padding:8px 10px; border-radius:8px; margin-bottom:10px; font-size:0.75rem; font-weight:800; color:${isCompleted ? '#10B981' : cd.color}; display:flex; align-items:center; justify-content:space-between;">
+                      <span><i class="fas ${isCompleted ? 'fa-check-circle' : 'fa-clock'}"></i> ${isCompleted ? 'Hoàn thành lúc: ' + fmt.datetime(t.completedAt || t.updatedAt) : cd.label}</span>
+                      ${!isCompleted ? `<span style="font-size:0.68rem; opacity:0.8;">Hạn: ${fmt.datetime(t.deadline)}</span>` : ''}
+                    </div>
+
+                    ${t.requirement ? `
+                      <div style="font-size:0.75rem; color:var(--text-secondary); background:rgba(0,0,0,0.08); padding:8px 10px; border-radius:8px; margin-bottom:10px; font-style:italic;">
+                        <i class="fas fa-comment-dots" style="color:var(--primary);"></i> "${t.requirement}"
+                      </div>
+                    ` : ''}
+
+                    <div style="font-size:0.7rem; color:var(--text-muted); margin-bottom:10px;">
+                      <i class="fas fa-user-tie"></i> Người giao: <strong>${t.assignerName || 'Sale'}</strong> · Giao ngày ${fmt.date(t.createdAt)}
+                    </div>
+                  </div>
+
+                  <!-- Actions -->
+                  <div style="border-top:1px solid rgba(255,255,255,0.06); padding-top:10px; display:flex; justify-content:space-between; align-items:center; gap:8px;">
+                    ${isCompleted ? `
+                      <div style="font-size:0.75rem; color:#10B981; font-weight:700;"><i class="fas fa-check-double"></i> Đã bàn giao kết quả</div>
+                    ` : `
+                      ${t.status === 'pending' ? `
+                        <button class="btn-secondary btn-sm btn-start-task" data-id="${t.id}" style="background:rgba(59,130,246,0.15); color:#3B82F6; border:1px solid rgba(59,130,246,0.3); font-weight:700;"><i class="fas fa-play"></i> Bắt Đầu Làm</button>
+                      ` : ''}
+                      <button class="btn-primary btn-sm btn-complete-task" data-id="${t.id}" style="background:linear-gradient(135deg, #10B981, #059669); border:none; font-weight:700; flex:1;"><i class="fas fa-check-circle"></i> Nộp Bài / Hoàn Thành</button>
+                    `}
+                    ${(user.role === 'manager' || user.id === t.assignerId) ? `
+                      <button class="btn-icon btn-delete-task" data-id="${t.id}" title="Xóa task" style="color:#EF4444; padding:6px; background:rgba(239,68,68,0.1); border-radius:6px; cursor:pointer;"><i class="fas fa-trash-alt"></i></button>
+                    ` : ''}
+                  </div>
+                </div>
+              `;
+            }).join('')}
+          </div>
+        `}
+      </div>
+    `;
+
+    // Filter listeners
+    document.querySelectorAll('.filter-tabs .tab-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        this.renderKtsTasks(user, btn.getAttribute('data-type'));
+      });
+    });
+
+    // Assign button listener for admin/sales
+    document.getElementById('btn-kts-task-assign-modal')?.addEventListener('click', () => {
+      const leads = DB.getLeads();
+      if (leads.length === 0) {
+        Toast.error('Chưa có lead nào để giao việc. Vui lòng tạo Lead trước.');
+        return;
+      }
+      this.openAssignKtsTaskForm(leads[0], user, () => this.renderKtsTasks(user, filterType));
+    });
+
+    // Start task listener
+    document.querySelectorAll('.btn-start-task').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const id = btn.getAttribute('data-id');
+        DB.updateKtsTask(id, { status: 'in_progress' });
+        Toast.info('Đã chuyển trạng thái: Đang thực hiện vẽ.');
+        this.renderKtsTasks(user, filterType);
+      });
+    });
+
+    // Complete task listener
+    document.querySelectorAll('.btn-complete-task').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const id = btn.getAttribute('data-id');
+        const task = DB.getKtsTasks().find(t => t.id === id);
+        if (task) {
+          this.openCompleteKtsTaskModal(task, user, () => this.renderKtsTasks(user, filterType));
+        }
+      });
+    });
+
+    // Delete task listener
+    document.querySelectorAll('.btn-delete-task').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const id = btn.getAttribute('data-id');
+        this.confirmDelete('Xóa Công Việc KTS', 'Bạn có chắc muốn xóa yêu cầu giao việc này?', () => {
+          DB.deleteKtsTask(id);
+          Toast.success('Đã xóa công việc KTS.');
+          this.renderKtsTasks(user, filterType);
+        });
+      });
+    });
+  },
+
+  openCompleteKtsTaskModal(task, user, onSave = null) {
+    const html = `
+      <form id="complete-kts-task-form" style="display:flex; flex-direction:column; gap:14px;">
+        <div style="background:rgba(16,185,129,0.1); border:1px solid rgba(16,185,129,0.3); padding:10px 14px; border-radius:10px; font-size:0.82rem;">
+          <div style="font-weight:700; color:#10B981;"><i class="fas fa-check-circle"></i> Bàn Giao Nộp Bài: ${task.title}</div>
+          <div style="color:var(--text-secondary); font-size:0.75rem; margin-top:2px;">Lead: ${task.leadName} · Người nhận: ${task.assignerName}</div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Ghi Chú Kết Quả / Khối Lượng Hoàn Thành</label>
+          <input type="text" id="kts-complete-note" class="form-input" placeholder="Ví dụ: Đã xong 3D phối màu gỗ, 14 tấm ván 17mm..." value="Đã hoàn thành bàn giao ${task.title}" required>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Link File Dự Án (Drive / Zalo / Dropbox)</label>
+          <input type="url" id="kts-complete-link" class="form-input" placeholder="https://drive.google.com/...">
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Đính Kèm Ảnh Bản Vẽ / 3D Render</label>
+          <div style="display:flex; align-items:center; gap:10px;">
+            <button type="button" class="btn-secondary" id="btn-upload-kts-complete-photo" style="font-size:0.8rem;"><i class="fas fa-camera"></i> Tải Ảnh Vẽ</button>
+            <input type="file" id="kts-complete-photo-file" accept="image/*" style="display:none;">
+            <div id="kts-complete-photo-preview" style="font-size:0.75rem; color:var(--text-muted);">Chưa chọn ảnh</div>
+          </div>
+        </div>
+
+        <div style="display:flex; gap:10px; justify-content:flex-end; margin-top:10px;">
+          <button type="button" class="btn-cancel" id="btn-cancel-complete-task" style="background:rgba(255,255,255,0.06); color:var(--text-secondary); border:1px solid var(--border-color); padding:10px 18px; border-radius:8px; font-weight:600; cursor:pointer;">Hủy</button>
+          <button type="submit" class="btn-primary" style="padding:10px 22px; border-radius:8px; font-weight:700; background:linear-gradient(135deg, #10B981, #059669);"><i class="fas fa-paper-plane"></i> Nộp Bài & Hoàn Thành</button>
+        </div>
+      </form>
+    `;
+
+    const modal = Modal.create(`Nộp Bài Hoàn Thành - ${task.title}`, html);
+    let photoData = '';
+
+    const photoInput = document.getElementById('kts-complete-photo-file');
+    document.getElementById('btn-upload-kts-complete-photo')?.addEventListener('click', () => photoInput.click());
+    photoInput?.addEventListener('change', async (e) => {
+      if (e.target.files && e.target.files[0]) {
+        try {
+          Toast.info('Đang xử lý ảnh...');
+          photoData = await compressImage(e.target.files[0], 1000, 0.75);
+          document.getElementById('kts-complete-photo-preview').innerHTML = `<img src="${photoData}" style="width:40px;height:40px;border-radius:6px;object-fit:cover;border:1px solid #10B981;"><span style="font-size:0.75rem; color:#10B981;">Đã đính kèm ảnh</span>`;
+          Toast.success('Đã tải ảnh thành công.');
+        } catch (err) {
+          Toast.error('Không thể tải ảnh này.');
+        }
+      }
+    });
+
+    document.getElementById('btn-cancel-complete-task')?.addEventListener('click', () => modal.close());
+
+    document.getElementById('complete-kts-task-form')?.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const resultNote = document.getElementById('kts-complete-note').value.trim();
+      const resultFileLink = document.getElementById('kts-complete-link').value.trim();
+
+      // Update task status
+      DB.updateKtsTask(task.id, {
+        status: 'completed',
+        completedAt: new Date().toISOString(),
+        resultNote,
+        resultFileLink,
+        resultImage: photoData
+      });
+
+      // Automatically add a KTS Report log entry
+      DB.addKtsLog({
+        projectName: task.leadName || task.title,
+        taskType: task.taskType,
+        date: new Date().toISOString().slice(0, 10),
+        progress: '100%',
+        note: resultNote,
+        attachments: photoData,
+        fileLink: resultFileLink,
+        userId: user.id,
+        userName: user.name
+      });
+
+      Toast.success('Đã nộp bài và tự động cập nhật Báo Cáo KTS!');
+      modal.close();
+      if (onSave) onSave();
+    });
+  },
+
+  openKtsTaskCategoryModal(taskType, user = null) {
+    if (!user) user = DB.getCurrentUser();
+    const tasks = DB.getKtsTasks(user.id, user.role).filter(t => t.taskType === taskType && t.status !== 'completed');
+
+    const titleMap = {
+      fast_support: '⚡ Chi Tiết Task: Vẽ Phản Ứng Nhanh Hỗ Trợ Sale',
+      technical_draw: '📐 Chi Tiết Task: Vẽ Kết Cấu Chi Tiết',
+      cnc_export: '🖨️ Chi Tiết Task: Xuất File CNC'
+    };
+    const modalTitle = titleMap[taskType] || '📋 Chi Tiết Công Việc Được Giao';
+
+    const getCountdown = (deadlineStr) => {
+      if (!deadlineStr) return { label: 'Chưa đặt hạn chót', color: '#64748B', isOverdue: false };
+      const d = new Date(deadlineStr);
+      const now = new Date();
+      const diffMs = d.getTime() - now.getTime();
+      if (diffMs <= 0) {
+        const overdueMinutes = Math.abs(Math.floor(diffMs / (1000 * 60)));
+        const overdueHours = Math.floor(overdueMinutes / 60);
+        const overdueDays = Math.floor(overdueHours / 24);
+        let text = overdueDays > 0 ? `${overdueDays}d ${overdueHours % 24}h` : (overdueHours > 0 ? `${overdueHours}h ${overdueMinutes % 60}m` : `${overdueMinutes}m`);
+        return { label: `⛔ QUÁ HẠN ${text}`, color: '#EF4444', isOverdue: true };
+      }
+      const mins = Math.floor(diffMs / (1000 * 60));
+      const hours = Math.floor(mins / 60);
+      const days = Math.floor(hours / 24);
+      if (days === 0) return { label: `🔥 HÔM NAY · Còn ${hours}h ${mins % 60}p`, color: '#F59E0B', isOverdue: false };
+      else if (days === 1) return { label: `🟡 NGÀY MAI · Còn 1d ${hours % 24}h`, color: '#3B82F6', isOverdue: false };
+      else return { label: `🟢 Còn ${days} ngày ${hours % 24}h`, color: '#10B981', isOverdue: false };
+    };
+
+    const html = `
+      <div style="display:flex; flex-direction:column; gap:12px; max-height:70vh; overflow-y:auto; padding-right:4px;">
+        ${tasks.length === 0 ? `
+          <div style="text-align:center; padding:30px 10px;">
+            <i class="fas fa-check-circle" style="font-size:2.5rem; color:#10B981; margin-bottom:10px;"></i>
+            <div style="font-weight:700; color:var(--text-primary);">Không có task nào đang chờ thuộc nhóm này!</div>
+            <div style="font-size:0.78rem; color:var(--text-muted); margin-top:4px;">Bạn đã hoàn thành tất cả công việc hoặc chưa được giao việc mới.</div>
+          </div>
+        ` : tasks.map(t => {
+          const cd = getCountdown(t.deadline);
+          return `
+            <div style="background:rgba(255,255,255,0.03); border:1px solid var(--border-color); border-left:4px solid ${cd.isOverdue ? '#EF4444' : '#8B5CF6'}; border-radius:10px; padding:12px 14px;">
+              <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:8px;">
+                <div>
+                  <div style="font-size:0.92rem; font-weight:800; color:var(--text-primary);">${t.title}</div>
+                  <div style="font-size:0.78rem; color:var(--primary); font-weight:700; margin-top:2px;">
+                    <i class="fas fa-building"></i> ${t.leadName}
+                  </div>
+                </div>
+                <span style="font-size:0.72rem; font-weight:800; padding:4px 8px; border-radius:6px; background:${cd.color}15; color:${cd.color}; border:1px solid ${cd.color}35; flex-shrink:0;">
+                  ${cd.label}
+                </span>
+              </div>
+
+              ${t.requirement ? `
+                <div style="font-size:0.75rem; color:var(--text-secondary); background:rgba(0,0,0,0.1); padding:8px; border-radius:6px; margin:8px 0; font-style:italic;">
+                  <i class="fas fa-comment-dots" style="color:var(--primary);"></i> "${t.requirement}"
+                </div>
+              ` : ''}
+
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-top:10px; padding-top:6px; border-top:1px solid rgba(255,255,255,0.05); font-size:0.72rem;">
+                <span style="color:var(--text-muted);"><i class="fas fa-user-tie"></i> Giao bởi: <strong>${t.assignerName || 'Sale'}</strong></span>
+                <button class="btn-primary btn-sm btn-modal-complete-task" data-id="${t.id}" style="background:linear-gradient(135deg, #10B981, #059669); border:none; padding:5px 12px; font-weight:700; border-radius:6px; cursor:pointer;"><i class="fas fa-check-circle"></i> Nộp Bài</button>
+              </div>
+            </div>
+          `;
+        }).join('')}
+      </div>
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-top:14px; padding-top:10px; border-top:1px solid var(--border-color);">
+        <button class="btn-link" id="btn-modal-go-kts-tasks" style="font-size:0.8rem;">Xem tất cả trong Quản lý task →</button>
+        <button class="btn-secondary" id="btn-close-cat-modal" style="padding:6px 14px; font-size:0.8rem; border-radius:6px; cursor:pointer;">Đóng</button>
+      </div>
+    `;
+
+    const modal = Modal.create(modalTitle, html);
+    document.getElementById('btn-close-cat-modal')?.addEventListener('click', () => modal.close());
+
+    document.getElementById('btn-modal-go-kts-tasks')?.addEventListener('click', () => {
+      modal.close();
+      this.renderKtsTasks(user, taskType);
+    });
+
+    document.querySelectorAll('.btn-modal-complete-task').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const id = btn.getAttribute('data-id');
+        const task = DB.getKtsTasks().find(t => t.id === id);
+        if (task) {
+          modal.close();
+          this.openCompleteKtsTaskModal(task, user, () => this.renderDashboard(user));
+        }
+      });
+    });
+  },
+
   // ── Helpers ───────────────────────────────────────────
   _setActiveNav(navId) {
     document.querySelectorAll('.nav-item').forEach(b => {
@@ -4133,3 +5055,4 @@ export const UI = {
     });
   }
 };
+

@@ -31,6 +31,14 @@
       "name": "Lê Thị Thu",
       "role": "accountant",
       "avatar": "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=100&auto=format&fit=crop&q=60"
+    },
+    {
+      "id": "usr_long_tran",
+      "username": "long.tran",
+      "password": "123",
+      "name": "Trần Hữu Nhật Long",
+      "role": "kts",
+      "avatar": "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&auto=format&fit=crop&q=60"
     }
   ],
   "leads": [
@@ -199,5 +207,65 @@
   "portfolio": [],
   "approvals": [],
   "notifications": [],
+  "ktsLogs": [
+    {
+      "id": "kts_log_sample_1",
+      "date": "2026-08-03",
+      "userId": "usr_long_tran",
+      "userName": "Trần Hữu Nhật Long",
+      "taskType": "fast_support",
+      "projectName": "Căn hộ Chị Mai - Bếp Module",
+      "progress": "100%",
+      "note": "Vẽ layout 3D phương án sơ bộ hỗ trợ Sale Hải chốt phương án màu vật liệu.",
+      "attachments": "https://images.unsplash.com/photo-1556911220-e15b29be8c8f?w=600&auto=format&fit=crop&q=80",
+      "fileLink": "https://zalo.me",
+      "createdAt": "2026-08-03T08:00:00.000Z"
+    },
+    {
+      "id": "kts_log_sample_2",
+      "date": "2026-08-03",
+      "userId": "usr_long_tran",
+      "userName": "Trần Hữu Nhật Long",
+      "taskType": "cnc_export",
+      "projectName": "Tủ bếp Chú Cường - Q7",
+      "progress": "14 tấm 17mm",
+      "note": "Đã nest file CNC, xuất file sơ đồ cắt ván chuyển xuống xưởng sản xuất.",
+      "attachments": "",
+      "fileLink": "",
+      "createdAt": "2026-08-03T10:30:00.000Z"
+    }
+  ],
+  "ktsTasks": [
+    {
+      "id": "kts_task_sample_1",
+      "leadId": "lead_1784969420567_8y35t",
+      "leadName": "Ahihi - Bếp dưới module",
+      "assignerId": "usr_hai",
+      "assignerName": "Tạ Quốc Hải",
+      "ktsId": "usr_long_tran",
+      "ktsName": "Trần Hữu Nhật Long",
+      "taskType": "fast_support",
+      "title": "Vẽ 3D phương án bếp màu gỗ phối trắng",
+      "requirement": "Khách muốn xem thử phối cảnh bếp dưới 3D trước 17:00 hôm nay để chốt vật liệu.",
+      "deadline": "2026-08-04T17:00:00",
+      "status": "pending",
+      "createdAt": "2026-08-03T11:00:00.000Z"
+    },
+    {
+      "id": "kts_task_sample_2",
+      "leadId": "lead_1784970765278_ovizf",
+      "leadName": "ông â - Bếp dưới",
+      "assignerId": "usr_luan",
+      "assignerName": "Tôn Thất Uyên Luận",
+      "ktsId": "usr_long_tran",
+      "ktsName": "Trần Hữu Nhật Long",
+      "taskType": "technical_draw",
+      "title": "Bóc tách bản vẽ kết cấu cabinet",
+      "requirement": "Cần bản vẽ 2D chi tiết bóc tách cho xưởng mộc thi công.",
+      "deadline": "2026-08-05T12:00:00",
+      "status": "in_progress",
+      "createdAt": "2026-08-03T09:00:00.000Z"
+    }
+  ],
   "systemLogs": []
 }

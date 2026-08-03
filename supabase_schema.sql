@@ -253,7 +253,8 @@ INSERT INTO public.users (id, username, password, name, role, avatar) VALUES
 ('usr_luan', 'admin', '123', 'Tôn Thất Uyên Luận', 'manager', 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100&auto=format&fit=crop&q=60'),
 ('usr_hai', 'hai.ta', '123', 'Tạ Quốc Hải', 'sales', 'https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?w=100&auto=format&fit=crop&q=60'),
 ('usr_duong', 'duong.tran', '123', 'Trần Tùng Dương', 'marketing', 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100&auto=format&fit=crop&q=60'),
-('usr_ketoan', 'ketoan', '123', 'Lê Thị Thu', 'accountant', 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=100&auto=format&fit=crop&q=60')
+('usr_ketoan', 'ketoan', '123', 'Lê Thị Thu', 'accountant', 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=100&auto=format&fit=crop&q=60'),
+('usr_long_tran', 'long.tran', '123', 'Long Trần', 'sales', '')
 ON CONFLICT (id) DO NOTHING;
 
 -- ════════════════════════════════════════════════════════════════════════
@@ -276,4 +277,3 @@ BEGIN
 EXCEPTION WHEN OTHERS THEN
   NULL;
 END $$;
-
