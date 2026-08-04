@@ -25,7 +25,6 @@ const DEFAULT_USERS = [
   { id: 'usr_luan', username: 'admin', password: '123', name: 'Tôn Thất Uyên Luận', role: 'manager', avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100&auto=format&fit=crop&q=60' },
   { id: 'usr_hai', username: 'hai.ta', password: '123', name: 'Tạ Quốc Hải', role: 'sales', avatar: 'https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?w=100&auto=format&fit=crop&q=60' },
   { id: 'usr_duong', username: 'duong.tran', password: '123', name: 'Trần Tùng Dương', role: 'marketing', avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100&auto=format&fit=crop&q=60' },
-  { id: 'usr_ketoan', username: 'ketoan', password: '123', name: 'Lê Thị Thu', role: 'accountant', avatar: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=100&auto=format&fit=crop&q=60' },
   { id: 'usr_long_tran', username: 'long.tran', password: '123', name: 'Trần Hữu Nhật Long', role: 'kts', avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&auto=format&fit=crop&q=60' }
 ];
 
@@ -184,6 +183,7 @@ export const DB = {
           }
         });
       }
+      db.users = db.users.filter(u => u.id !== 'usr_ketoan' && u.username !== 'ketoan');
       if (!db.leads) db.leads = [];
       if (!db.contracts) db.contracts = [];
       if (!db.campaigns) db.campaigns = [];
@@ -276,7 +276,7 @@ export const DB = {
       const db = this.load();
 
       if (users && users.length > 0) {
-        const fetchedUsers = users.map(u => ({
+        const fetchedUsers = users.filter(u => u.id !== 'usr_ketoan' && u.username !== 'ketoan').map(u => ({
           id: u.id,
           username: u.username,
           password: u.password,

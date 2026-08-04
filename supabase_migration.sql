@@ -129,6 +129,7 @@ CREATE TABLE IF NOT EXISTS public.kts_logs (
 ALTER TABLE public.leads ADD COLUMN IF NOT EXISTS home_address TEXT;
 ALTER TABLE public.leads ADD COLUMN IF NOT EXISTS style_images JSONB DEFAULT '[]'::jsonb;
 ALTER TABLE public.notifications ADD COLUMN IF NOT EXISTS dismissed_by JSONB DEFAULT '[]'::jsonb;
+DELETE FROM public.users WHERE id = 'usr_ketoan' OR username = 'ketoan';
 ALTER TABLE public.contracts ADD COLUMN IF NOT EXISTS home_address TEXT;
 ALTER TABLE public.contracts ADD COLUMN IF NOT EXISTS construction_days INT DEFAULT 0;
 ALTER TABLE public.contract_payments ADD COLUMN IF NOT EXISTS payment_type TEXT DEFAULT 'installment';
