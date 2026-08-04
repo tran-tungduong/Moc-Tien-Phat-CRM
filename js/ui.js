@@ -1898,39 +1898,37 @@ export const UI = {
           `}
         </div>
 
-        <!-- Action Row (Placed ABOVE History for Quick Access & Only Shows 'Lên Hợp Đồng' when Stage is Chốt Hợp Đồng) -->
-        <div style="display:flex; flex-wrap:wrap; gap:8px; margin-top:4px; padding-bottom:12px; border-bottom:1px solid var(--border-color);">
+        <!-- Clear action hierarchy -->
+        <div style="margin-top:2px; padding:12px; border:1px solid var(--border-color); border-radius:12px; background:rgba(255,255,255,0.02);">
+          <div style="font-size:0.72rem; color:var(--text-muted); margin-bottom:9px; font-weight:700; text-transform:uppercase; letter-spacing:0.4px;">Thao Tác Nhanh</div>
           ${canEditLead ? `
-            <button id="drawer-create-apt-btn" style="flex:1.2; background:rgba(59,130,246,0.15); border:1px solid rgba(59,130,246,0.4); color:#3B82F6; border-radius:10px; padding:9px 10px; font-size:0.8rem; font-weight:700; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:6px;">
-              <i class="fas fa-calendar-plus"></i> Đặt Lịch Hẹn
-            </button>
-            ${lead.stage === 'won' ? `
-              <button id="drawer-create-contract-btn" style="flex:1.2; background:rgba(16,185,129,0.15); border:1px solid rgba(16,185,129,0.4); color:#10B981; border-radius:10px; padding:9px 10px; font-size:0.8rem; font-weight:700; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:6px;">
-                <i class="fas fa-file-signature"></i> Lên Hợp Đồng
+            <div style="display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:8px;">
+              <button id="drawer-create-apt-btn" style="background:#3B82F6; border:1px solid #3B82F6; color:white; border-radius:10px; padding:11px 10px; font-size:0.8rem; font-weight:800; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:7px;">
+                <i class="fas fa-calendar-plus"></i> Đặt Lịch Hẹn
               </button>
-            ` : ''}
-            <button id="drawer-assign-kts-btn" style="flex:1; background:rgba(139,92,246,0.15); border:1px solid rgba(139,92,246,0.4); color:#8B5CF6; border-radius:10px; padding:9px 10px; font-size:0.8rem; font-weight:700; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:6px;">
-              <i class="fas fa-drafting-compass"></i> Giao Việc KTS
-            </button>
-            <button id="drawer-edit-lead-btn" style="flex:1; background:rgba(197,168,128,0.12); border:1px solid rgba(197,168,128,0.3); color:var(--primary); border-radius:10px; padding:9px 10px; font-size:0.8rem; font-weight:600; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:6px;">
-              <i class="fas fa-edit"></i> Sửa (Duyệt)
-            </button>
+              <button id="drawer-assign-kts-btn" style="background:#8B5CF6; border:1px solid #8B5CF6; color:white; border-radius:10px; padding:11px 10px; font-size:0.8rem; font-weight:800; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:7px;">
+                <i class="fas fa-drafting-compass"></i> Giao Việc KTS
+              </button>
+              ${lead.stage === 'won' ? `<button id="drawer-create-contract-btn" style="grid-column:span 2; background:#10B981; border:1px solid #10B981; color:white; border-radius:10px; padding:11px 10px; font-size:0.8rem; font-weight:800; cursor:pointer;"><i class="fas fa-file-signature"></i> Lên Hợp Đồng</button>` : ''}
+            </div>
+            <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:9px; padding-top:9px; border-top:1px solid rgba(255,255,255,0.06);">
+              <button id="drawer-edit-lead-btn" style="background:transparent; border:1px solid var(--border-color); color:var(--text-secondary); border-radius:8px; padding:7px 12px; font-size:0.75rem; font-weight:600; cursor:pointer;"><i class="fas fa-edit"></i> Sửa thông tin</button>
+              ${canDeleteLead ? `<button id="drawer-delete-lead-btn" style="background:transparent; border:1px solid rgba(239,68,68,0.3); color:#EF4444; border-radius:8px; padding:7px 12px; font-size:0.75rem; font-weight:600; cursor:pointer;"><i class="fas fa-trash-alt"></i> Xóa khách hàng</button>` : ''}
+            </div>
           ` : `
             <div style="font-size:0.75rem; color:var(--text-muted); width:100%; text-align:center; padding:4px 0;">
               <i class="fas fa-lock"></i> Đang ở chế độ Chỉ Xem khách hàng này
             </div>
           `}
-          ${canDeleteLead ? `
-            <button id="drawer-delete-lead-btn" style="flex:1; background:rgba(239,68,68,0.12); border:1px solid rgba(239,68,68,0.3); color:#EF4444; border-radius:10px; padding:9px 10px; font-size:0.8rem; font-weight:600; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:6px;">
-              <i class="fas fa-trash-alt"></i> Xóa
-            </button>
-          ` : ''}
         </div>
 
         <!-- History Timeline -->
         <div>
-          <div style="font-size:0.72rem; color:var(--text-muted); margin-bottom:8px; font-weight:600; text-transform:uppercase; letter-spacing:0.4px;">Lịch Sử Hoạt Động</div>
-          <div style="display:flex; flex-direction:column; gap:6px;">
+          <button type="button" id="drawer-toggle-history" aria-expanded="false" style="width:100%; display:flex; justify-content:space-between; align-items:center; gap:10px; background:rgba(255,255,255,0.025); border:1px solid var(--border-color); border-radius:10px; padding:10px 12px; color:var(--text-secondary); cursor:pointer;">
+            <span style="font-size:0.76rem; font-weight:800;"><i class="fas fa-history" style="color:var(--primary);"></i> Lịch Sử Hoạt Động <span style="color:var(--text-muted);">(${(lead.history || []).length})</span></span>
+            <span style="font-size:0.72rem; color:var(--primary);"><span id="drawer-history-toggle-label">Xem lịch sử</span> <i id="drawer-history-toggle-icon" class="fas fa-chevron-down"></i></span>
+          </button>
+          <div id="drawer-history-content" style="display:none; flex-direction:column; gap:6px; margin-top:8px;">
             ${(lead.history || []).slice().reverse().map((h) => {
               const text = h.action || '';
               const isApt = text.includes('Đặt lịch') || text.includes('Lịch hẹn') || text.includes('lịch hẹn');
@@ -1999,6 +1997,18 @@ export const UI = {
     `;
 
     const modal = Modal.create(lead.name, html);
+
+    document.getElementById('drawer-toggle-history')?.addEventListener('click', (e) => {
+      const button = e.currentTarget;
+      const content = document.getElementById('drawer-history-content');
+      const label = document.getElementById('drawer-history-toggle-label');
+      const icon = document.getElementById('drawer-history-toggle-icon');
+      const isOpen = button.getAttribute('aria-expanded') === 'true';
+      button.setAttribute('aria-expanded', String(!isOpen));
+      content.style.display = isOpen ? 'none' : 'flex';
+      label.textContent = isOpen ? 'Xem lịch sử' : 'Ẩn lịch sử';
+      icon.className = `fas ${isOpen ? 'fa-chevron-down' : 'fa-chevron-up'}`;
+    });
 
     // Quick Handover listener (Admin only)
     if (isAdmin) {
