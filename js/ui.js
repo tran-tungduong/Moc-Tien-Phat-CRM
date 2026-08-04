@@ -644,6 +644,16 @@ export const UI = {
   },
 
   _getNavItems(user) {
+    if (user.role === 'manager') {
+      return [
+        { id: 'dashboard', label: 'Tổng Quan', icon: 'fa-home' },
+        { id: 'leads', label: 'Khách Hàng', icon: 'fa-user-friends' },
+        { id: 'appointments', label: 'Lịch Hẹn', icon: 'fa-calendar-alt' },
+        { id: 'contracts', label: 'Hợp Đồng', icon: 'fa-file-contract' },
+        { id: 'campaigns', label: 'Chiến Dịch', icon: 'fa-bullhorn' },
+        { id: 'kts_tasks', label: 'CV KTS', icon: 'fa-tasks' }
+      ];
+    }
     const all = [
       { id: 'dashboard', label: 'Tổng Quan', icon: 'fa-home', roles: ['manager', 'sales', 'marketing', 'accountant', 'kts'] },
       { id: 'kts_tasks', label: 'Công Việc KTS', icon: 'fa-tasks', roles: ['manager', 'kts', 'sales', 'marketing', 'accountant'] },
