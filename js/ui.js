@@ -670,6 +670,16 @@ export const UI = {
         { id: 'kts_reports', label: 'Báo Cáo KTS', icon: 'fa-chart-line' }
       ];
     }
+    if (user.role === 'sales') {
+      return [
+        { id: 'dashboard', label: 'Tổng Quan', icon: 'fa-home' },
+        { id: 'leads', label: 'Khách Hàng', icon: 'fa-user-friends' },
+        { id: 'appointments', label: 'Lịch Hẹn', icon: 'fa-calendar-alt' },
+        { id: 'contracts', label: 'Hợp Đồng', icon: 'fa-file-contract' },
+        { id: 'kts_tasks', label: 'Công Việc KTS', icon: 'fa-tasks' },
+        { id: 'kts_reports', label: 'Báo Cáo KTS', icon: 'fa-chart-line' }
+      ];
+    }
     const all = [
       { id: 'dashboard', label: 'Tổng Quan', icon: 'fa-home', roles: ['manager', 'sales', 'marketing', 'accountant', 'kts'] },
       { id: 'kts_tasks', label: 'Công Việc KTS', icon: 'fa-tasks', roles: ['manager', 'kts', 'sales', 'marketing', 'accountant'] },
@@ -4454,7 +4464,7 @@ export const UI = {
   },
 
   renderKtsReports(user, filterTaskType = 'all', searchQuery = '') {
-    if (user.role === 'manager') {
+    if (user.role === 'manager' || user.role === 'sales') {
       this.renderKtsDailyReport(user);
       return;
     }
