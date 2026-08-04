@@ -1,6 +1,46 @@
 import { DB, LEAD_STAGES, LEAD_SOURCES, CAMPAIGN_PLATFORMS, PORTFOLIO_CATEGORIES } from './db.js';
 import { Toast, Modal } from './components.js';
 
+const pad2 = value => String(value).padStart(2, '0');
+const formatDateOnly = value => {
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  return `${pad2(date.getDate())}/${pad2(date.getMonth() + 1)}/${date.getFullYear()}`;
+};
+const formatDateTime24 = value => {
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  return `${formatDateOnly(date)} ${pad2(date.getHours())}:${pad2(date.getMinutes())}`;
+};
+const parseDateTime24 = value => {
+  const match = String(value || '').trim().match(/^(\d{2})\/(\d{2})\/(\d{4})\s+([01]\d|2[0-3]):([0-5]\d)$/);
+  if (!match) return null;
+  const [, day, month, year, hour, minute] = match.map(Number);
+  const date = new Date(year, month - 1, day, hour, minute, 0, 0);
+  return date.getFullYear() === year && date.getMonth() === month - 1 && date.getDate() === day ? date : null;
+};
+const parseDateOnly = value => {
+  const match = String(value || '').trim().match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+  if (!match) return '';
+  const [, day, month, year] = match.map(Number);
+  const date = new Date(year, month - 1, day);
+  if (date.getFullYear() !== year || date.getMonth() !== month - 1 || date.getDate() !== day) return '';
+  return `${year}-${pad2(month)}-${pad2(day)}`;
+};
+const applyDateMask = (input, withTime = false) => {
+  if (!input) return;
+  input.addEventListener('input', () => {
+    const digits = input.value.replace(/\D/g, '').slice(0, withTime ? 12 : 8);
+    const parts = [digits.slice(0, 2), digits.slice(2, 4), digits.slice(4, 8)].filter(Boolean);
+    let formatted = parts.join('/');
+    if (withTime && digits.length > 8) {
+      const timeDigits = digits.slice(8);
+      formatted += ` ${timeDigits.slice(0, 2)}${timeDigits.length > 2 ? `:${timeDigits.slice(2, 4)}` : ''}`;
+    }
+    input.value = formatted;
+  });
+};
+
 // ─── Lightbox ─────────────────────────────────────────────
 window.showPhotoLightbox = (url) => {
   const lb = document.createElement('div');
@@ -20,19 +60,18 @@ const fmt = {
   },
   date(str) {
     if (!str) return '—';
-    return new Date(str).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' });
+    return formatDateOnly(str) || '—';
   },
   datetime(str) {
     if (!str) return '—';
-    const d = new Date(str);
-    return d.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' }) + ' ' + d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+    return formatDateTime24(str) || '—';
   },
   datetimeBadges(str) {
     if (!str) return '<span class="datetime-empty">—</span>';
     const d = new Date(str);
     if (Number.isNaN(d.getTime())) return '<span class="datetime-empty">—</span>';
-    const date = d.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' });
-    const time = d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+    const date = formatDateOnly(d);
+    const time = `${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
     return `<span class="datetime-badges"><span class="datetime-date"><i class="far fa-calendar"></i>${date}</span><span class="datetime-time"><i class="far fa-clock"></i>${time}</span></span>`;
   },
   timeAgo(str) {
@@ -92,7 +131,7 @@ const getCountdownInfo = (datetimeStr) => {
       icon: '🟡'
     };
   } else {
-    const dateLabel = target.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' });
+    const dateLabel = formatDateOnly(target);
     return {
       label: `${dateLabel} │ Còn ${duration}`,
       color: '#10B981',
@@ -139,7 +178,7 @@ const getKtsCountdownInfo = (deadlineStr, nowValue = new Date()) => {
     return { dayLabel: 'NGÀY MAI', timeLabel: `Còn ${durationLabel}`, icon: '🟡', color: '#F59E0B', isOverdue: false };
   }
 
-  const dateLabel = deadline.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' });
+  const dateLabel = formatDateOnly(deadline);
   return { dayLabel: dateLabel, timeLabel: `Còn ${durationLabel}`, icon: '🟢', color: '#10B981', isOverdue: false };
 };
 
@@ -767,7 +806,7 @@ export const UI = {
       <div class="page-content fade-in">
         <div class="welcome-section">
           <div class="welcome-user">Xin chào, ${user.name} ${roleIcon(user.role)}</div>
-          <div class="welcome-date">${new Date().toLocaleDateString('vi-VN', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</div>
+          <div class="welcome-date">${new Date().toLocaleDateString('vi-VN', { weekday: 'long' })} · ${formatDateOnly(new Date())}</div>
         </div>
 
         <!-- PROMINENT NEW PAYMENT NOTIFICATIONS BANNER (FOR ADMIN / ACCOUNTANT) -->
@@ -4089,7 +4128,8 @@ export const UI = {
         </div>
         <div>
           <label class="form-label">Ngày & Giờ Hẹn *</label>
-          <input type="datetime-local" id="af-datetime" class="form-input" value="${apt?.datetime?.slice(0, 16) || ''}" required>
+          <input type="text" id="af-datetime" class="form-input" value="${apt?.datetime ? formatDateTime24(apt.datetime) : ''}" placeholder="dd/mm/yyyy HH:mm" inputmode="numeric" autocomplete="off" required>
+          <div style="font-size:0.68rem; color:var(--text-muted); margin-top:4px;"><i class="far fa-clock"></i> Định dạng: ngày/tháng/năm · giờ 24 giờ, ví dụ 08/04/2026 19:00</div>
           <div id="af-countdown" style="margin-top:8px; border-radius:10px; padding:10px 14px; display:none; align-items:center; gap:10px; font-weight:700; font-size:0.92rem; transition:all 0.3s;">
             <span id="af-countdown-icon" style="font-size:1.2rem;"></span>
             <span id="af-countdown-text"></span>
@@ -4101,6 +4141,7 @@ export const UI = {
     `;
 
     const modal = Modal.create(apt ? 'Chỉnh Sửa Lịch Hẹn' : 'Đặt Lịch Hẹn Mới', html);
+    applyDateMask(document.getElementById('af-datetime'), true);
 
     // Live countdown logic
     const updateCountdown = () => {
@@ -4110,7 +4151,9 @@ export const UI = {
       const text = document.getElementById('af-countdown-text');
       if (!box || !icon || !text || !val) { if (box) box.style.display = 'none'; return; }
 
-      const countdown = getCountdownInfo(val);
+      const parsedValue = parseDateTime24(val);
+      if (!parsedValue) { box.style.display = 'none'; return; }
+      const countdown = getCountdownInfo(parsedValue);
       box.style.display = 'flex';
       box.style.background = countdown.bg;
       box.style.border = `1px solid ${countdown.border}`;
@@ -4127,11 +4170,16 @@ export const UI = {
       const leadSel = document.getElementById('af-lead');
       const leadOpt = leadSel.options[leadSel.selectedIndex];
       const targetLeadId = leadSel.value;
+      const appointmentDate = parseDateTime24(document.getElementById('af-datetime').value);
+      if (!appointmentDate) {
+        Toast.error('Ngày giờ chưa đúng định dạng dd/mm/yyyy HH:mm. Ví dụ: 08/04/2026 19:00');
+        return;
+      }
       const data = {
         title: document.getElementById('af-title').value,
         leadId: targetLeadId,
         leadName: leadOpt && targetLeadId ? leadOpt.getAttribute('data-name') : '',
-        datetime: document.getElementById('af-datetime').value,
+        datetime: appointmentDate.toISOString(),
         note: document.getElementById('af-note').value,
         assignedTo: apt?.assignedTo || user.id,
         appointmentType: apt?.appointmentType || 'general',
@@ -4432,7 +4480,7 @@ export const UI = {
           <div><h2 class="page-title"><i class="fas fa-chart-line"></i> Báo Cáo Hoạt Động KTS Theo Ngày</h2><div class="page-subtitle">Tự động tổng hợp từ thao tác giao việc, bắt đầu và hoàn thành</div></div>
         </div>
         <div class="section-card" style="padding:12px 14px; display:flex; gap:12px; align-items:flex-end; flex-wrap:wrap;">
-          <div class="form-group" style="margin:0;"><label class="form-label">Ngày báo cáo</label><input type="date" id="kts-daily-date" class="form-input" value="${reportDate}"></div>
+          <div class="form-group" style="margin:0;"><label class="form-label">Ngày báo cáo</label><input type="text" id="kts-daily-date" class="form-input" value="${formatDateOnly(`${reportDate}T00:00:00`)}" placeholder="dd/mm/yyyy" inputmode="numeric"></div>
           <div class="form-group" style="margin:0; min-width:220px;"><label class="form-label">Kiến trúc sư</label><select id="kts-daily-user" class="form-select"><option value="all">Tất cả KTS</option>${ktsUsers.map(k => `<option value="${k.id}" ${selectedKtsId === k.id ? 'selected' : ''}>${k.name}</option>`).join('')}</select></div>
         </div>
         <div class="kpi-grid" style="margin-bottom:16px;">
@@ -4455,7 +4503,16 @@ export const UI = {
         </div>
       </div>`;
 
-    document.getElementById('kts-daily-date')?.addEventListener('change', e => this.renderKtsDailyReport(user, e.target.value, selectedKtsId));
+    applyDateMask(document.getElementById('kts-daily-date'));
+
+    document.getElementById('kts-daily-date')?.addEventListener('change', e => {
+      const dateKey = parseDateOnly(e.target.value);
+      if (!dateKey) {
+        Toast.error('Ngày báo cáo chưa đúng định dạng dd/mm/yyyy.');
+        return;
+      }
+      this.renderKtsDailyReport(user, dateKey, selectedKtsId);
+    });
     document.getElementById('kts-daily-user')?.addEventListener('change', e => this.renderKtsDailyReport(user, reportDate, e.target.value));
     document.querySelectorAll('.kts-daily-event').forEach(btn => btn.addEventListener('click', () => {
       const task = DB.getKtsTasks().find(t => t.id === btn.getAttribute('data-id'));
@@ -4810,15 +4867,9 @@ export const UI = {
     const tomorrow = new Date();
     tomorrow.setDate(tomorrow.getDate() + 1);
     tomorrow.setHours(17, 0, 0, 0);
-    const toLocalDateTimeValue = (dateValue) => {
-      if (!dateValue) return '';
-      const date = new Date(dateValue);
-      const offset = date.getTimezoneOffset();
-      return new Date(date.getTime() - offset * 60000).toISOString().slice(0, 16);
-    };
     const defaultDeadlineStr = isEdit
-      ? toLocalDateTimeValue(editTask.deadline)
-      : toLocalDateTimeValue(tomorrow);
+      ? formatDateTime24(editTask.deadline)
+      : formatDateTime24(tomorrow);
 
     const html = `
       <form id="assign-kts-task-form" style="display:flex; flex-direction:column; gap:14px;">
@@ -4847,7 +4898,8 @@ export const UI = {
           <input type="hidden" id="kts-assign-task-type" value="site_survey">
           <div class="form-group">
             <label class="form-label">Ngày & Giờ Hẹn Khách <span style="color:#EF4444;">*</span></label>
-            <input type="datetime-local" id="kts-assign-deadline" class="form-input" value="${defaultDeadlineStr}" required>
+            <input type="text" id="kts-assign-deadline" class="form-input" value="${defaultDeadlineStr}" placeholder="dd/mm/yyyy HH:mm" inputmode="numeric" autocomplete="off" required>
+            <div style="font-size:0.68rem; color:var(--text-muted); margin-top:4px;"><i class="far fa-clock"></i> Ví dụ: 08/04/2026 19:00</div>
             <div style="font-size:0.7rem; color:var(--text-muted); margin-top:5px;"><i class="fas fa-calendar-check" style="color:#3B82F6;"></i> Thời gian này sẽ xuất hiện trong Lịch Hẹn của người đi khảo sát.</div>
           </div>
         ` : `<div class="form-row">
@@ -4862,7 +4914,8 @@ export const UI = {
 
           <div class="form-group">
             <label class="form-label">Hạn Hoàn Thành (Deadline) <span style="color:#EF4444;">*</span></label>
-            <input type="datetime-local" id="kts-assign-deadline" class="form-input" value="${defaultDeadlineStr}" required>
+            <input type="text" id="kts-assign-deadline" class="form-input" value="${defaultDeadlineStr}" placeholder="dd/mm/yyyy HH:mm" inputmode="numeric" autocomplete="off" required>
+            <div style="font-size:0.68rem; color:var(--text-muted); margin-top:4px;"><i class="far fa-clock"></i> Ví dụ: 08/04/2026 19:00</div>
           </div>
         </div>`}
 
@@ -4892,6 +4945,7 @@ export const UI = {
     `;
 
     const modal = Modal.create(isSurveyStageFlow ? `${isEdit ? '✏️ Sửa' : '📅 Tạo'} Lịch Khảo Sát - ${lead.name}` : `${isEdit ? '✏️ Sửa Công Việc KTS' : '🚀 Giao Việc Cho KTS'} - ${lead.name}`, html);
+    applyDateMask(document.getElementById('kts-assign-deadline'), true);
 
     document.getElementById('btn-cancel-kts-assign')?.addEventListener('click', () => modal.close());
 
@@ -4931,14 +4985,20 @@ export const UI = {
         const externalName = document.getElementById('kts-external-name').value.trim();
         const ktsId = isExternal ? '' : selectedAssignee;
         const ktsUser = isExternal ? { name: externalName } : DB.getUserById(ktsId);
-        const deadline = document.getElementById('kts-assign-deadline').value;
+        const deadlineInput = document.getElementById('kts-assign-deadline').value;
+        const deadlineDate = parseDateTime24(deadlineInput);
         const title = document.getElementById('kts-assign-title').value.trim();
         const requirement = document.getElementById('kts-assign-req').value.trim();
 
-        if (!title || !deadline || !ktsUser || (isExternal && !externalName)) {
-          Toast.error(isSurveyStageFlow ? 'Vui lòng điền nội dung và ngày giờ hẹn khách.' : 'Vui lòng điền tiêu đề và hạn chót hoàn thành.');
+        if (!deadlineDate) {
+          Toast.error('Ngày giờ chưa đúng định dạng dd/mm/yyyy HH:mm. Ví dụ: 08/04/2026 19:00');
           return;
         }
+        if (!title || !ktsUser || (isExternal && !externalName)) {
+          Toast.error(isSurveyStageFlow ? 'Vui lòng điền đầy đủ nội dung lịch hẹn.' : 'Vui lòng điền đầy đủ thông tin giao việc.');
+          return;
+        }
+        const deadline = deadlineDate.toISOString();
         const surveyAddress = document.getElementById('kts-survey-address').value.trim();
         if (isSurvey && !surveyAddress) {
           Toast.error('Vui lòng nhập địa chỉ khảo sát.');
@@ -4964,7 +5024,7 @@ export const UI = {
           taskType: taskType,
           title: title,
           requirement: requirement,
-          deadline: new Date(deadline).toISOString()
+          deadline
         };
         const syncSurveyToLead = () => {
           if (!isSurvey) return;
