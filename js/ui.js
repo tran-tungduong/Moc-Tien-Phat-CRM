@@ -125,10 +125,10 @@ const getKtsCountdownInfo = (deadlineStr, nowValue = new Date()) => {
   const calendarDayOffset = Math.round((deadlineStart - todayStart) / 86400000);
 
   if (calendarDayOffset === 0) {
-    return { dayLabel: 'HÔM NAY', timeLabel: `Còn ${durationLabel}`, icon: '🔥', color: '#F59E0B', isOverdue: false };
+    return { dayLabel: 'HÔM NAY', timeLabel: `Còn ${durationLabel}`, icon: '🔴', color: '#EF4444', isOverdue: false };
   }
   if (calendarDayOffset === 1) {
-    return { dayLabel: 'NGÀY MAI', timeLabel: `Còn ${durationLabel}`, icon: '🟡', color: '#3B82F6', isOverdue: false };
+    return { dayLabel: 'NGÀY MAI', timeLabel: `Còn ${durationLabel}`, icon: '🟡', color: '#F59E0B', isOverdue: false };
   }
 
   const dateLabel = deadline.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' });
