@@ -823,10 +823,16 @@ export const UI = {
     const now = new Date();
 
     // Upcoming appointments (next 7 days)
-    const upcoming = appointments
+    const upcomingAll = appointments
       .filter(a => a.status === 'pending' && new Date(a.datetime) >= now)
-      .sort((a, b) => new Date(a.datetime) - new Date(b.datetime))
-      .slice(0, 4);
+      .sort((a, b) => new Date(a.datetime) - new Date(b.datetime));
+    const appointmentGroups = user.role === 'sales'
+      ? [
+        { label: 'Lịch Của Tôi', icon: 'fa-user-clock', items: upcomingAll.filter(a => a.assignedTo === user.id).slice(0, 4) },
+        { label: 'Lịch Của Khách Hàng Tôi Phụ Trách', icon: 'fa-users', items: upcomingAll.filter(a => a.assignedTo !== user.id).slice(0, 4) }
+      ]
+      : [{ label: '', icon: '', items: upcomingAll.slice(0, 4) }];
+    const upcomingCount = appointmentGroups.reduce((sum, group) => sum + group.items.length, 0);
 
     body.innerHTML = `
       <div class="page-content fade-in">
@@ -1175,10 +1181,13 @@ export const UI = {
               <span>Lịch Hẹn Sắp Tới</span>
               <button class="btn-link" id="dash-go-apt">Xem tất cả →</button>
             </div>
-            ${upcoming.length === 0 ? `<div class="empty-state"><i class="fas fa-calendar-check"></i><p>Không có lịch hẹn sắp tới.</p></div>` :
-        upcoming.map(a => {
+            ${upcomingCount === 0 ? `<div class="empty-state"><i class="fas fa-calendar-check"></i><p>Không có lịch hẹn sắp tới.</p></div>` : appointmentGroups.map(group => group.items.length === 0 ? '' : `
+              ${group.label ? `<div style="font-size:0.7rem; font-weight:800; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.4px; margin:12px 2px 5px;"><i class="fas ${group.icon}" style="color:var(--primary);"></i> ${group.label} (${group.items.length})</div>` : ''}
+              ${group.items.map(a => {
           const cd = getCountdownInfo(a.datetime);
           const aptOwner = DB.getUserById(a.assignedTo);
+          const isSurvey = a.appointmentType === 'site_survey';
+          const isRelatedOnly = user.role === 'sales' && a.assignedTo !== user.id;
           return `
                   <div class="list-item dash-apt-item" data-id="${a.id}" style="margin-top:8px; display:flex; justify-content:space-between; align-items:center; gap:8px; border-left:4px solid ${cd.color}; padding:11px 14px; background:var(--bg-secondary); border-radius:12px; cursor:pointer;" title="Bấm để xem chi tiết & ghi chú lịch hẹn">
                     <div style="flex:1; min-width:0;">
@@ -1188,7 +1197,8 @@ export const UI = {
                       </div>
                       <div style="font-size:0.82rem; font-weight:600; color:var(--text-primary);">${a.title}</div>
                       <div style="font-size:0.72rem; color:var(--text-muted); margin-top:4px; display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
-                        ${aptOwner ? `<span><i class="fas fa-user-tie"></i> Sale: <strong style="color:var(--text-secondary);">${aptOwner.name}</strong></span>` : ''}
+                        ${aptOwner ? `<span><i class="fas fa-user-tie"></i> ${isSurvey ? 'Người đi khảo sát' : 'Người phụ trách'}: <strong style="color:var(--text-secondary);">${aptOwner.name}</strong></span>` : ''}
+                        ${isRelatedOnly ? '<span style="color:#3B82F6; font-weight:700;"><i class="fas fa-eye"></i> Bạn theo dõi khách hàng</span>' : ''}
                         ${fmt.datetimeBadges(a.datetime)}
                       </div>
                     </div>
@@ -1198,7 +1208,8 @@ export const UI = {
                     </div>
                   </div>
                 `;
-        }).join('')
+              }).join('')}
+            `).join('')
       }
           </div>
         </div>
@@ -3884,6 +3895,10 @@ export const UI = {
           const aptOwner = DB.getUserById(a.assignedTo || a.createdBy);
           const linkedTask = a.ktsTaskId ? DB.getKtsTasks().find(t => t.id === a.ktsTaskId) : null;
           const isSurvey = a.appointmentType === 'site_survey';
+          const linkedLead = a.leadId ? DB.getLead(a.leadId) : null;
+          const isCustomerOwner = user.role === 'sales' && linkedLead?.assignedTo === user.id && a.assignedTo !== user.id;
+          const canOperate = user.role === 'manager' || a.assignedTo === user.id;
+          const canCancel = user.role === 'manager' || (!isSurvey && (a.assignedTo === user.id || a.createdBy === user.id));
           const displayTitle = isSurvey ? (a.title || '').replace(/^📏\s*/, '') : a.title;
           return `
                 <div class="list-item apt-item" data-id="${a.id}" style="margin-top:8px; border-left:4px solid ${cd.color}; padding:11px 14px; cursor:pointer; display:flex; justify-content:space-between; align-items:center; gap:8px;">
@@ -3896,6 +3911,7 @@ export const UI = {
                     ${a.appointmentType === 'site_survey' ? '<div style="display:inline-block; margin-top:4px; padding:2px 7px; border-radius:5px; background:rgba(249,115,22,0.12); border:1px solid rgba(249,115,22,0.28); color:#F97316; font-size:0.66rem; font-weight:800;">📏 LỊCH KHẢO SÁT</div>' : ''}
                     <div style="font-size:0.72rem; color:var(--text-muted); margin-top:4px; display:flex; gap:8px; flex-wrap:wrap;">
                       ${aptOwner ? `<span><i class="fas fa-user-tie"></i> ${isSurvey ? 'Người đi khảo sát' : 'Người phụ trách'}: <strong style="color:var(--text-secondary);">${aptOwner.name}</strong></span>` : ''}
+                      ${isCustomerOwner ? '<span style="color:#3B82F6; font-weight:700;"><i class="fas fa-user-tag"></i> Bạn là Sale phụ trách khách hàng</span>' : ''}
                       ${fmt.datetimeBadges(a.datetime)}
                       ${isSurvey ? `<span style="color:${linkedTask?.status === 'in_progress' ? '#3B82F6' : '#F59E0B'}; font-weight:700;"><i class="fas ${linkedTask?.status === 'in_progress' ? 'fa-walking' : 'fa-hourglass-half'}"></i> ${linkedTask?.status === 'in_progress' ? 'Đang khảo sát' : 'Sắp diễn ra'}</span>` : ''}
                     </div>
@@ -3906,9 +3922,9 @@ export const UI = {
                       ${cd.icon} ${cd.label}
                     </div>
                     <div style="display:flex; gap:4px;">
-                      ${isSurvey && linkedTask?.status === 'pending' ? `<button class="apt-start-survey-btn" data-id="${a.id}" style="background:rgba(59,130,246,0.12); border:1px solid rgba(59,130,246,0.35); color:#3B82F6; font-size:0.7rem; font-weight:700; padding:4px 9px; border-radius:6px; cursor:pointer; white-space:nowrap;"><i class="fas fa-play"></i> Bắt đầu</button>` : ''}
-                      <button class="apt-done-btn" data-id="${a.id}" style="background:rgba(16,185,129,0.15); border:1px solid rgba(16,185,129,0.4); color:#10B981; font-size:0.7rem; font-weight:700; padding:4px 9px; border-radius:6px; cursor:pointer; white-space:nowrap;"><i class="fas fa-check"></i> Xong</button>
-                      <button class="apt-delete-btn" data-id="${a.id}" style="background:none; border:none; color:var(--status-rejected); font-size:0.75rem; cursor:pointer; padding:3px 5px;"><i class="fas fa-times"></i></button>
+                      ${canOperate && isSurvey && linkedTask?.status === 'pending' ? `<button class="apt-start-survey-btn" data-id="${a.id}" style="background:rgba(59,130,246,0.12); border:1px solid rgba(59,130,246,0.35); color:#3B82F6; font-size:0.7rem; font-weight:700; padding:4px 9px; border-radius:6px; cursor:pointer; white-space:nowrap;"><i class="fas fa-play"></i> Bắt đầu</button>` : ''}
+                      ${canOperate ? `<button class="apt-done-btn" data-id="${a.id}" style="background:rgba(16,185,129,0.15); border:1px solid rgba(16,185,129,0.4); color:#10B981; font-size:0.7rem; font-weight:700; padding:4px 9px; border-radius:6px; cursor:pointer; white-space:nowrap;"><i class="fas fa-check"></i> Xong</button>` : '<span style="font-size:0.66rem; color:var(--text-muted); border:1px solid var(--border-color); border-radius:6px; padding:4px 7px;"><i class="fas fa-eye"></i> Theo dõi</span>'}
+                      ${canCancel ? `<button class="apt-delete-btn" data-id="${a.id}" style="background:none; border:none; color:var(--status-rejected); font-size:0.75rem; cursor:pointer; padding:3px 5px;"><i class="fas fa-times"></i></button>` : ''}
                     </div>
                   </div>
                 </div>
@@ -4008,9 +4024,10 @@ export const UI = {
     const aptOwner = DB.getUserById(apt.assignedTo || apt.createdBy);
     const lead = apt.leadId ? DB.getLead(apt.leadId) : null;
     const completedUser = apt.completedBy ? DB.getUserById(apt.completedBy) : null;
-    const canEdit = user.role === 'manager' || apt.assignedTo === user.id || apt.createdBy === user.id;
     const linkedTask = apt.ktsTaskId ? DB.getKtsTasks().find(t => t.id === apt.ktsTaskId) : null;
     const isSurvey = apt.appointmentType === 'site_survey';
+    const canOperate = user.role === 'manager' || apt.assignedTo === user.id;
+    const canEdit = user.role === 'manager' || (isSurvey ? apt.assignedTo === user.id : (apt.assignedTo === user.id || apt.createdBy === user.id));
     const displayTitle = isSurvey ? (apt.title || '').replace(/^📏\s*/, '') : apt.title;
     const completedLate = isKtsTaskCompletedLate(linkedTask);
     const displayStatus = completedLate ? '⏰ Hoàn Thành Trễ' : (apt.status === 'done' ? '✓ Đã Hoàn Thành' : apt.status === 'cancelled' ? '✗ Đã Hủy' : (linkedTask?.status === 'in_progress' ? '🔵 Đang Khảo Sát' : '⏳ Sắp Diễn Ra'));

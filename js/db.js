@@ -1473,13 +1473,21 @@ export const DB = {
   getAppointments(userId, role) {
     const db = this.load();
     if (!userId || role === 'manager') return db.appointments;
-    if (role === 'sales' || role === 'marketing' || role === 'kts') {
+    if (role === 'sales') {
+      return db.appointments.filter(a => {
+        if (a.assignedTo === userId || a.createdBy === userId) return true;
+        if (!a.leadId) return false;
+        const lead = db.leads.find(l => l.id === a.leadId);
+        return lead?.assignedTo === userId;
+      });
+    }
+    if (role === 'marketing' || role === 'kts') {
       return db.appointments.filter(a => {
         if (a.assignedTo === userId || a.createdBy === userId) return true;
         if (a.assignedTo && a.assignedTo !== userId) return false;
         if (a.leadId) {
           const lead = db.leads.find(l => l.id === a.leadId);
-          if (lead && (lead.assignedTo === userId || lead.surveyBy === 'Nhật Long' || lead.surveyBy === 'Long')) return true;
+          if (lead?.assignedTo === userId) return true;
         }
         return false;
       });
