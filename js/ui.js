@@ -59,30 +59,34 @@ const getCountdownInfo = (datetimeStr) => {
     };
   }
 
-  const totalHours = diffMs / (1000 * 60 * 60);
-  const days = Math.floor(totalHours / 24);
-  const hours = Math.floor(totalHours % 24);
-  const mins = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+  const totalMinutes = Math.floor(diffMs / 60000);
+  const totalHours = Math.floor(totalMinutes / 60);
+  const mins = totalMinutes % 60;
+  const duration = `${totalHours} giờ ${String(mins).padStart(2, '0')} phút`;
+  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const targetStart = new Date(target.getFullYear(), target.getMonth(), target.getDate());
+  const calendarDayOffset = Math.round((targetStart - todayStart) / 86400000);
 
-  if (days === 0) {
+  if (calendarDayOffset === 0) {
     return {
-      label: `HÔM NAY · Còn ${hours}h ${mins}p`,
+      label: `HÔM NAY │ Còn ${duration}`,
       color: '#EF4444',
       bg: 'linear-gradient(135deg, rgba(239,68,68,0.28), rgba(239,68,68,0.15))',
       border: 'rgba(239,68,68,0.6)',
       icon: '🔴'
     };
-  } else if (days === 1) {
+  } else if (calendarDayOffset === 1) {
     return {
-      label: `NGÀY MAI · Còn ${hours}h ${mins}p`,
+      label: `NGÀY MAI │ Còn ${duration}`,
       color: '#F59E0B',
       bg: 'linear-gradient(135deg, rgba(245,158,11,0.28), rgba(245,158,11,0.15))',
       border: 'rgba(245,158,11,0.6)',
       icon: '🟡'
     };
   } else {
+    const dateLabel = target.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' });
     return {
-      label: `Còn ${days} ngày ${hours}h`,
+      label: `${dateLabel} │ Còn ${duration}`,
       color: '#10B981',
       bg: 'rgba(16,185,129,0.16)',
       border: 'rgba(16,185,129,0.4)',
@@ -90,6 +94,53 @@ const getCountdownInfo = (datetimeStr) => {
     };
   }
 };
+
+// KTS deadline: day status follows the actual local calendar date,
+// while the remaining duration always keeps the real total hours/minutes.
+const getKtsCountdownInfo = (deadlineStr, nowValue = new Date()) => {
+  if (!deadlineStr) {
+    return { dayLabel: 'CHƯA CÓ HẠN', timeLabel: '', icon: '⚪', color: '#64748B', isOverdue: false };
+  }
+
+  const deadline = new Date(deadlineStr);
+  const now = new Date(nowValue);
+  const diffMs = deadline.getTime() - now.getTime();
+  const totalMinutes = Math.floor(Math.abs(diffMs) / 60000);
+  const totalHours = Math.floor(totalMinutes / 60);
+  const remainingMinutes = totalMinutes % 60;
+  const durationLabel = `${totalHours} giờ ${String(remainingMinutes).padStart(2, '0')} phút`;
+
+  if (diffMs <= 0) {
+    return {
+      dayLabel: 'QUÁ HẠN',
+      timeLabel: durationLabel,
+      icon: '⛔',
+      color: '#EF4444',
+      isOverdue: true
+    };
+  }
+
+  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const deadlineStart = new Date(deadline.getFullYear(), deadline.getMonth(), deadline.getDate());
+  const calendarDayOffset = Math.round((deadlineStart - todayStart) / 86400000);
+
+  if (calendarDayOffset === 0) {
+    return { dayLabel: 'HÔM NAY', timeLabel: `Còn ${durationLabel}`, icon: '🔥', color: '#F59E0B', isOverdue: false };
+  }
+  if (calendarDayOffset === 1) {
+    return { dayLabel: 'NGÀY MAI', timeLabel: `Còn ${durationLabel}`, icon: '🟡', color: '#3B82F6', isOverdue: false };
+  }
+
+  const dateLabel = deadline.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' });
+  return { dayLabel: dateLabel, timeLabel: `Còn ${durationLabel}`, icon: '🟢', color: '#10B981', isOverdue: false };
+};
+
+const renderKtsCountdown = (countdown) => `
+  <span style="display:inline-flex; align-items:center; gap:6px; white-space:nowrap;">
+    <span>${countdown.icon} ${countdown.dayLabel}</span>
+    ${countdown.timeLabel ? `<span aria-hidden="true" style="height:14px; border-left:1px solid currentColor; opacity:0.35;"></span><span>${countdown.timeLabel}</span>` : ''}
+  </span>
+`;
 
 const compressImage = (file, maxDimension = 800, quality = 0.7) => {
   return new Promise((resolve, reject) => {
@@ -959,23 +1010,11 @@ export const UI = {
                   if (activeKtsTasks.length === 0) {
                     return `<div class="empty-state" style="padding:20px; text-align:center;"><i class="fas fa-clipboard-check" style="font-size:2rem; color:var(--text-muted);"></i><p style="margin-top:6px; font-size:0.8rem; color:var(--text-secondary);">Hiện không có công việc nào cần xử lý.</p></div>`;
                   }
-                  const getCountdown = (deadlineStr) => {
-                    if (!deadlineStr) return { label: 'Chưa đặt hạn', color: '#64748B' };
-                    const diffMs = new Date(deadlineStr).getTime() - new Date().getTime();
-                    if (diffMs <= 0) return { label: '⛔ QUÁ HẠN', color: '#EF4444' };
-                    const mins = Math.floor(diffMs / (1000 * 60));
-                    const hours = Math.floor(mins / 60);
-                    const days = Math.floor(hours / 24);
-                    if (days === 0) return { label: `🔥 Còn ${hours}h ${mins % 60}p`, color: '#F59E0B' };
-                    if (days === 1) return { label: `🟡 Còn 1d ${hours % 24}h`, color: '#3B82F6' };
-                    return { label: `🟢 Còn ${days}d ${hours % 24}h`, color: '#10B981' };
-                  };
-
                   return activeKtsTasks.slice(0, 5).map(t => {
-                    const cd = getCountdown(t.deadline);
+                    const cd = getKtsCountdownInfo(t.deadline);
                     return `
                       <div class="list-item" style="background:rgba(255,255,255,0.02); border:1px solid var(--border-color); border-radius:10px; padding:10px 12px; border-left:4px solid ${cd.color}; cursor:pointer;" onclick="UI.openKtsTaskCategoryModal('${t.taskType}', DB.getCurrentUser())">
-                        <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:8px;">
+                        <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:8px; flex-wrap:wrap;">
                           <div>
                             <strong style="color:var(--text-primary); font-size:0.85rem;">${t.title}</strong>
                             <div style="font-size:0.72rem; color:var(--primary); font-weight:700; margin-top:2px;">
@@ -985,8 +1024,8 @@ export const UI = {
                               Giao bởi: ${t.assignerName || 'Sale'}
                             </div>
                           </div>
-                          <div style="font-size:0.7rem; font-weight:800; color:${cd.color}; background:${cd.color}15; border:1px solid ${cd.color}35; padding:4px 8px; border-radius:6px; flex-shrink:0;">
-                            ${cd.label}
+                          <div style="font-size:0.7rem; font-weight:800; color:${cd.color}; background:${cd.color}15; border:1px solid ${cd.color}35; padding:4px 8px; border-radius:6px; flex-shrink:0; margin-left:auto;">
+                            ${renderKtsCountdown(cd)}
                           </div>
                         </div>
                       </div>
@@ -3950,52 +3989,13 @@ export const UI = {
       const text = document.getElementById('af-countdown-text');
       if (!box || !icon || !text || !val) { if (box) box.style.display = 'none'; return; }
 
-      const now = new Date();
-      const target = new Date(val);
-      const diffMs = target - now;
-
-      if (diffMs <= 0) {
-        box.style.display = 'flex';
-        box.style.background = 'rgba(239,68,68,0.15)';
-        box.style.border = '1px solid rgba(239,68,68,0.4)';
-        box.style.color = '#EF4444';
-        icon.textContent = '⛔';
-        text.textContent = 'Lịch hẹn đã qua!';
-        return;
-      }
-
-      const totalHours = diffMs / (1000 * 60 * 60);
-      const days = Math.floor(totalHours / 24);
-      const hours = Math.floor(totalHours % 24);
-      const mins = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
-
-      let label = '';
-      if (days === 0) label = `Còn ${hours} giờ ${mins} phút`;
-      else if (days === 1) label = `Ngày mai — còn ${hours} giờ ${mins} phút`;
-      else label = `Còn ${days} ngày ${hours} giờ`;
-
+      const countdown = getCountdownInfo(val);
       box.style.display = 'flex';
-
-      if (days === 0) {
-        // Hôm nay — ĐỎ
-        box.style.background = 'rgba(239,68,68,0.15)';
-        box.style.border = '1px solid rgba(239,68,68,0.5)';
-        box.style.color = '#EF4444';
-        icon.textContent = '🔴';
-      } else if (days === 1) {
-        // Ngày mai — VÀNG
-        box.style.background = 'rgba(245,158,11,0.15)';
-        box.style.border = '1px solid rgba(245,158,11,0.5)';
-        box.style.color = '#F59E0B';
-        icon.textContent = '🟡';
-      } else {
-        // Còn xa — XANH
-        box.style.background = 'rgba(16,185,129,0.12)';
-        box.style.border = '1px solid rgba(16,185,129,0.4)';
-        box.style.color = '#10B981';
-        icon.textContent = '🟢';
-      }
-      text.textContent = label;
+      box.style.background = countdown.bg;
+      box.style.border = `1px solid ${countdown.border}`;
+      box.style.color = countdown.color;
+      icon.textContent = countdown.icon;
+      text.textContent = countdown.label;
     };
 
     document.getElementById('af-datetime')?.addEventListener('input', updateCountdown);
@@ -4739,51 +4739,6 @@ export const UI = {
     else if (filterType === 'completed') filtered = tasks.filter(t => t.status === 'completed');
     else if (filterType === 'pending') filtered = tasks.filter(t => t.status !== 'completed');
 
-    const getTaskCountdown = (deadlineStr) => {
-      if (!deadlineStr) return { label: 'Chưa đặt hạn chót', color: '#64748B', isOverdue: false };
-      const d = new Date(deadlineStr);
-      const now = new Date();
-      const diffMs = d.getTime() - now.getTime();
-
-      if (diffMs <= 0) {
-        const overdueMinutes = Math.abs(Math.floor(diffMs / (1000 * 60)));
-        const overdueHours = Math.floor(overdueMinutes / 60);
-        const overdueDays = Math.floor(overdueHours / 24);
-        let text = overdueDays > 0 ? `${overdueDays}d ${overdueHours % 24}h` : (overdueHours > 0 ? `${overdueHours}h ${overdueMinutes % 60}m` : `${overdueMinutes}m`);
-        return { label: `⛔ QUÁ HẠN ${text}`, color: '#EF4444', isOverdue: true };
-      }
-
-      const mins = Math.floor(diffMs / (1000 * 60));
-      const totalHours = Math.floor(mins / 60);
-      const remainingMins = mins % 60;
-
-      const targetYear = d.getFullYear();
-      const targetMonth = d.getMonth();
-      const targetDate = d.getDate();
-
-      const nowYear = now.getFullYear();
-      const nowMonth = now.getMonth();
-      const nowDate = now.getDate();
-
-      const tomorrow = new Date(now);
-      tomorrow.setDate(now.getDate() + 1);
-      const tomYear = tomorrow.getFullYear();
-      const tomMonth = tomorrow.getMonth();
-      const tomDate = tomorrow.getDate();
-
-      const isToday = (targetYear === nowYear && targetMonth === nowMonth && targetDate === nowDate);
-      const isTomorrow = (targetYear === tomYear && targetMonth === tomMonth && targetDate === tomDate);
-
-      if (isToday) {
-        return { label: `🔥 HÔM NAY · Còn ${totalHours}h ${remainingMins}p`, color: '#F59E0B', isOverdue: false };
-      } else if (isTomorrow) {
-        return { label: `🟡 NGÀY MAI · Còn ${totalHours}h ${remainingMins}p`, color: '#3B82F6', isOverdue: false };
-      } else {
-        const days = Math.floor(totalHours / 24);
-        return { label: `🟢 Còn ${days} ngày ${totalHours % 24}h`, color: '#10B981', isOverdue: false };
-      }
-    };
-
     body.innerHTML = `
       <div class="page-content fade-in">
         <div class="page-title-row">
@@ -4813,7 +4768,7 @@ export const UI = {
         ` : `
           <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(320px, 1fr)); gap:14px;">
             ${filtered.map(t => {
-              const cd = getTaskCountdown(t.deadline);
+              const cd = getKtsCountdownInfo(t.deadline);
               const isCompleted = t.status === 'completed';
               const typeMap = {
                 fast_support: { label: '⚡ Vẽ Phản Ứng Nhanh', color: '#8B5CF6' },
@@ -4844,8 +4799,8 @@ export const UI = {
                     </div>
 
                     <!-- Countdown Box -->
-                    <div style="background:${isCompleted ? 'rgba(16,185,129,0.08)' : (cd.isOverdue ? 'rgba(239,68,68,0.1)' : 'rgba(255,255,255,0.04)')}; border:1px solid ${isCompleted ? 'rgba(16,185,129,0.3)' : (cd.isOverdue ? 'rgba(239,68,68,0.3)' : 'var(--border-color)')}; padding:8px 10px; border-radius:8px; margin-bottom:10px; font-size:0.75rem; font-weight:800; color:${isCompleted ? '#10B981' : cd.color}; display:flex; align-items:center; justify-content:space-between;">
-                      <span><i class="fas ${isCompleted ? 'fa-check-circle' : 'fa-clock'}"></i> ${isCompleted ? 'Hoàn thành lúc: ' + fmt.datetime(t.completedAt || t.updatedAt) : cd.label}</span>
+                    <div style="background:${isCompleted ? 'rgba(16,185,129,0.08)' : (cd.isOverdue ? 'rgba(239,68,68,0.1)' : 'rgba(255,255,255,0.04)')}; border:1px solid ${isCompleted ? 'rgba(16,185,129,0.3)' : (cd.isOverdue ? 'rgba(239,68,68,0.3)' : 'var(--border-color)')}; padding:8px 10px; border-radius:8px; margin-bottom:10px; font-size:0.75rem; font-weight:800; color:${isCompleted ? '#10B981' : cd.color}; display:flex; align-items:center; justify-content:space-between; gap:8px; flex-wrap:wrap;">
+                      <span style="display:inline-flex; align-items:center; gap:6px;"><i class="fas ${isCompleted ? 'fa-check-circle' : 'fa-clock'}"></i> ${isCompleted ? 'Hoàn thành lúc: ' + fmt.datetime(t.completedAt || t.updatedAt) : renderKtsCountdown(cd)}</span>
                       ${!isCompleted ? `<span style="font-size:0.68rem; opacity:0.8;">Hạn: ${fmt.datetime(t.deadline)}</span>` : ''}
                     </div>
 
@@ -5052,26 +5007,7 @@ export const UI = {
     };
     const tInfo = typeMap[freshTask.taskType] || { label: '🛠️ Công Việc KTS', color: 'var(--primary)' };
 
-    const getCountdown = (deadlineStr) => {
-      if (!deadlineStr) return { label: 'Chưa đặt hạn chót', color: '#64748B', isOverdue: false };
-      const d = new Date(deadlineStr);
-      const diffMs = d.getTime() - new Date().getTime();
-      if (diffMs <= 0) {
-        const overdueMinutes = Math.abs(Math.floor(diffMs / (1000 * 60)));
-        const overdueHours = Math.floor(overdueMinutes / 60);
-        const overdueDays = Math.floor(overdueHours / 24);
-        let text = overdueDays > 0 ? `${overdueDays}d ${overdueHours % 24}h` : (overdueHours > 0 ? `${overdueHours}h ${overdueMinutes % 60}m` : `${overdueMinutes}m`);
-        return { label: `⛔ QUÁ HẠN ${text}`, color: '#EF4444', isOverdue: true };
-      }
-      const mins = Math.floor(diffMs / (1000 * 60));
-      const hours = Math.floor(mins / 60);
-      const days = Math.floor(hours / 24);
-      if (days === 0) return { label: `🔥 HÔM NAY · Còn ${hours}h ${mins % 60}p`, color: '#F59E0B', isOverdue: false };
-      if (days === 1) return { label: `🟡 NGÀY MAI · Còn 1d ${hours % 24}h`, color: '#3B82F6', isOverdue: false };
-      return { label: `🟢 Còn ${days} ngày ${hours % 24}h`, color: '#10B981', isOverdue: false };
-    };
-
-    const cd = getCountdown(freshTask.deadline);
+    const cd = getKtsCountdownInfo(freshTask.deadline);
     const isCompleted = freshTask.status === 'completed';
 
     const assignedTime = freshTask.createdAt ? fmt.datetime(freshTask.createdAt) : 'Chưa ghi nhận';
@@ -5124,9 +5060,9 @@ export const UI = {
             </div>
           ` : ''}
 
-          <div style="margin-top:10px; background:${isCompleted ? 'rgba(16,185,129,0.08)' : (cd.isOverdue ? 'rgba(239,68,68,0.1)' : 'rgba(255,255,255,0.04)')}; border:1px solid ${isCompleted ? 'rgba(16,185,129,0.3)' : (cd.isOverdue ? 'rgba(239,68,68,0.3)' : 'var(--border-color)')}; padding:8px 12px; border-radius:8px; display:flex; justify-content:space-between; align-items:center; font-size:0.78rem;">
+          <div style="margin-top:10px; background:${isCompleted ? 'rgba(16,185,129,0.08)' : (cd.isOverdue ? 'rgba(239,68,68,0.1)' : 'rgba(255,255,255,0.04)')}; border:1px solid ${isCompleted ? 'rgba(16,185,129,0.3)' : (cd.isOverdue ? 'rgba(239,68,68,0.3)' : 'var(--border-color)')}; padding:8px 12px; border-radius:8px; display:flex; justify-content:space-between; align-items:center; gap:8px; flex-wrap:wrap; font-size:0.78rem;">
             <span style="font-weight:700; color:${isCompleted ? '#10B981' : cd.color};">
-              <i class="fas ${isCompleted ? 'fa-check-circle' : 'fa-clock'}"></i> ${isCompleted ? 'Đã hoàn thành bàn giao' : cd.label}
+              <i class="fas ${isCompleted ? 'fa-check-circle' : 'fa-clock'}"></i> ${isCompleted ? 'Đã hoàn thành bàn giao' : renderKtsCountdown(cd)}
             </span>
             <span style="color:var(--text-muted);"><i class="fas fa-calendar-alt"></i> Hạn chót: <strong>${fmt.datetime(freshTask.deadline)}</strong></span>
           </div>
@@ -5249,26 +5185,6 @@ export const UI = {
     };
     const modalTitle = titleMap[taskType] || '📋 Chi Tiết Công Việc Được Giao';
 
-    const getCountdown = (deadlineStr) => {
-      if (!deadlineStr) return { label: 'Chưa đặt hạn chót', color: '#64748B', isOverdue: false };
-      const d = new Date(deadlineStr);
-      const now = new Date();
-      const diffMs = d.getTime() - now.getTime();
-      if (diffMs <= 0) {
-        const overdueMinutes = Math.abs(Math.floor(diffMs / (1000 * 60)));
-        const overdueHours = Math.floor(overdueMinutes / 60);
-        const overdueDays = Math.floor(overdueHours / 24);
-        let text = overdueDays > 0 ? `${overdueDays}d ${overdueHours % 24}h` : (overdueHours > 0 ? `${overdueHours}h ${overdueMinutes % 60}m` : `${overdueMinutes}m`);
-        return { label: `⛔ QUÁ HẠN ${text}`, color: '#EF4444', isOverdue: true };
-      }
-      const mins = Math.floor(diffMs / (1000 * 60));
-      const hours = Math.floor(mins / 60);
-      const days = Math.floor(hours / 24);
-      if (days === 0) return { label: `🔥 HÔM NAY · Còn ${hours}h ${mins % 60}p`, color: '#F59E0B', isOverdue: false };
-      else if (days === 1) return { label: `🟡 NGÀY MAI · Còn 1d ${hours % 24}h`, color: '#3B82F6', isOverdue: false };
-      else return { label: `🟢 Còn ${days} ngày ${hours % 24}h`, color: '#10B981', isOverdue: false };
-    };
-
     const html = `
       <div style="display:flex; flex-direction:column; gap:12px; max-height:70vh; overflow-y:auto; padding-right:4px;">
         ${tasks.length === 0 ? `
@@ -5278,10 +5194,10 @@ export const UI = {
             <div style="font-size:0.78rem; color:var(--text-muted); margin-top:4px;">Bạn đã hoàn thành tất cả công việc hoặc chưa được giao việc mới.</div>
           </div>
         ` : tasks.map(t => {
-          const cd = getCountdown(t.deadline);
+          const cd = getKtsCountdownInfo(t.deadline);
           return `
             <div style="background:rgba(255,255,255,0.03); border:1px solid var(--border-color); border-left:4px solid ${cd.isOverdue ? '#EF4444' : '#8B5CF6'}; border-radius:10px; padding:12px 14px;">
-              <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:8px;">
+              <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:8px; flex-wrap:wrap;">
                 <div>
                   <div style="font-size:0.92rem; font-weight:800; color:var(--text-primary);">${t.title}</div>
                   <div style="font-size:0.78rem; color:var(--primary); font-weight:700; margin-top:2px;">
@@ -5289,7 +5205,7 @@ export const UI = {
                   </div>
                 </div>
                 <span style="font-size:0.72rem; font-weight:800; padding:4px 8px; border-radius:6px; background:${cd.color}15; color:${cd.color}; border:1px solid ${cd.color}35; flex-shrink:0;">
-                  ${cd.label}
+                  ${renderKtsCountdown(cd)}
                 </span>
               </div>
 
