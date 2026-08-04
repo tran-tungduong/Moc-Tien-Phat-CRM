@@ -1903,6 +1903,20 @@ export const UI = {
     const isAdmin = user.role === 'manager';
     const canEditLead = isAdmin || (lead.assignedTo && lead.assignedTo === user.id);
     const canDeleteLead = isAdmin;
+    const latestSurveyTask = DB.getKtsTasks()
+      .filter(task => task.leadId === lead.id && task.taskType === 'site_survey')
+      .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))[0] || null;
+    const surveyStatus = latestSurveyTask
+      ? (latestSurveyTask.status === 'completed'
+        ? (isKtsTaskCompletedLate(latestSurveyTask)
+          ? { label: 'Hoàn thành trễ', color: '#EF4444', bg: 'rgba(239,68,68,0.12)', icon: 'fa-clock' }
+          : { label: 'Đã hoàn thành', color: '#10B981', bg: 'rgba(16,185,129,0.12)', icon: 'fa-check-circle' })
+        : latestSurveyTask.status === 'in_progress'
+          ? { label: 'Đang khảo sát', color: '#3B82F6', bg: 'rgba(59,130,246,0.12)', icon: 'fa-play-circle' }
+          : latestSurveyTask.status === 'paused'
+            ? { label: 'Tạm dừng', color: '#F59E0B', bg: 'rgba(245,158,11,0.12)', icon: 'fa-pause-circle' }
+            : { label: 'Chờ khảo sát', color: '#EAB308', bg: 'rgba(234,179,8,0.12)', icon: 'fa-hourglass-half' })
+      : null;
 
     const html = `
       <div style="display:flex; flex-direction:column; gap:14px;">
@@ -1944,15 +1958,18 @@ export const UI = {
         </div>
 
         <!-- Survey Info Banner Prominently Displayed -->
-        ${(lead.surveyBy || lead.stage === 'survey') ? `
+        ${(lead.surveyBy || lead.stage === 'survey' || latestSurveyTask) ? `
           <div style="background:rgba(139,92,246,0.08); border:1.5px solid rgba(139,92,246,0.35); border-radius:10px; padding:10px; color:#8B5CF6;">
-            <div style="display:flex; justify-content:space-between; align-items:center;">
-              <strong style="font-size:0.78rem;"><i class="fas fa-ruler-combined"></i> THÔNG TIN ĐO ĐẠC THỰC ĐỊA</strong>
-              ${canEditLead ? `<button id="btn-edit-survey-info" style="background:none; border:none; color:#8B5CF6; font-size:0.75rem; font-weight:700; cursor:pointer; text-decoration:underline;">Sửa lịch khảo sát</button>` : ''}
+            <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; flex-wrap:wrap;">
+              <strong style="font-size:0.78rem;"><i class="fas fa-ruler-combined"></i> THÔNG TIN KHẢO SÁT MẶT BẰNG</strong>
+              <div style="display:flex; align-items:center; gap:9px; flex-wrap:wrap;">
+                ${surveyStatus ? `<span style="display:inline-flex; align-items:center; gap:5px; padding:4px 8px; border-radius:7px; background:${surveyStatus.bg}; border:1px solid ${surveyStatus.color}55; color:${surveyStatus.color}; font-size:0.7rem; font-weight:800;"><i class="fas ${surveyStatus.icon}"></i> ${surveyStatus.label}</span>` : ''}
+                ${canEditLead ? `<button id="btn-edit-survey-info" style="background:none; border:none; color:#8B5CF6; font-size:0.75rem; font-weight:700; cursor:pointer; text-decoration:underline;">Sửa lịch khảo sát</button>` : ''}
+              </div>
             </div>
             <div style="font-size:0.88rem; font-weight:700; color:var(--text-primary); margin-top:4px;">
-              📐 Người đi đo: <span style="color:#8B5CF6;">${lead.surveyBy || 'Chưa nhập tên người đo'}</span>
-              ${lead.surveyDate ? `<span style="margin-left:6px;">${Number.isNaN(new Date(lead.surveyDate).getTime()) ? lead.surveyDate : fmt.datetimeBadges(lead.surveyDate)}</span>` : ''}
+              📐 Người đi đo: <span style="color:#8B5CF6;">${latestSurveyTask?.ktsName || lead.surveyBy || 'Chưa nhập tên người đo'}</span>
+              ${(latestSurveyTask?.deadline || lead.surveyDate) ? `<span style="margin-left:6px;">${Number.isNaN(new Date(latestSurveyTask?.deadline || lead.surveyDate).getTime()) ? (latestSurveyTask?.deadline || lead.surveyDate) : fmt.datetimeBadges(latestSurveyTask?.deadline || lead.surveyDate)}</span>` : ''}
             </div>
             ${lead.surveyNote ? `<div style="font-size:0.75rem; color:var(--text-secondary); margin-top:3px;">• Ghi chú hiện trạng: ${lead.surveyNote}</div>` : ''}
           </div>
@@ -4095,7 +4112,7 @@ export const UI = {
           <div style="font-size:0.9rem; font-weight:700; color:var(--text-primary); margin-top:4px;">
             ${isSurvey ? '📏' : '📌'} ${displayTitle}
           </div>
-          ${apt.appointmentType === 'site_survey' ? '<div style="display:inline-block; margin-top:7px; padding:3px 8px; border-radius:6px; background:rgba(249,115,22,0.12); border:1px solid rgba(249,115,22,0.28); color:#F97316; font-size:0.7rem; font-weight:800;">📏 LỊCH KHẢO SÁT THỰC ĐỊA</div>' : ''}
+          ${apt.appointmentType === 'site_survey' ? '<div style="display:inline-block; margin-top:7px; padding:3px 8px; border-radius:6px; background:rgba(249,115,22,0.12); border:1px solid rgba(249,115,22,0.28); color:#F97316; font-size:0.7rem; font-weight:800;">📏 LỊCH KHẢO SÁT MẶT BẰNG</div>' : ''}
           <div style="margin-top:10px; display:flex; align-items:center; justify-content:space-between; gap:8px; flex-wrap:wrap;">
             <div style="font-size:0.75rem; color:var(--text-muted);">
               ${fmt.datetimeBadges(apt.datetime)}
@@ -4544,7 +4561,7 @@ export const UI = {
       (task.workSessions || []).some(session => isOnDate(session.startedAt) || isOnDate(session.endedAt));
     const visibleUsers = effectiveKtsId === 'all' ? ktsUsers : ktsUsers.filter(u => u.id === effectiveKtsId);
     const typeMap = {
-      site_survey: '📏 Khảo sát thực địa',
+      site_survey: '📏 Khảo sát mặt bằng',
       fast_support: '⚡ Vẽ phản ứng nhanh',
       technical_draw: '📐 Vẽ kết cấu chi tiết',
       cnc_export: '🖨️ Xuất file CNC'
@@ -4721,7 +4738,7 @@ export const UI = {
     }
 
     const taskTypeMap = {
-      site_survey: { label: '📏 Đi đo khảo sát thực địa', color: '#F97316', bg: 'rgba(249,115,22,0.15)', icon: '📏' },
+      site_survey: { label: '📏 Khảo sát mặt bằng', color: '#F97316', bg: 'rgba(249,115,22,0.15)', icon: '📏' },
       fast_support: { label: '⚡ Vẽ phản ứng nhanh (Hỗ trợ Sale)', color: '#8B5CF6', bg: 'rgba(139,92,246,0.15)', icon: '⚡' },
       technical_draw: { label: '📐 Vẽ kết cấu chi tiết', color: '#3B82F6', bg: 'rgba(59,130,246,0.15)', icon: '📐' },
       cnc_export: { label: '🖨️ Ra file CNC', color: '#10B981', bg: 'rgba(16,185,129,0.15)', icon: '🖨️' },
@@ -5140,7 +5157,7 @@ export const UI = {
       try {
         const taskType = document.getElementById('kts-assign-task-type').value;
         if (taskType === 'site_survey' && !isSurveyStageFlow) {
-          Toast.error('Khảo sát thực địa chỉ được tạo từ giai đoạn CRM của khách hàng.');
+          Toast.error('Khảo sát mặt bằng chỉ được tạo từ giai đoạn CRM của khách hàng.');
           return;
         }
         const selectedAssignee = document.getElementById('kts-assign-user').value;
@@ -5296,7 +5313,7 @@ export const UI = {
               const isCompleted = t.status === 'completed';
               const isCompletedLate = isKtsTaskCompletedLate(t);
               const typeMap = {
-                site_survey: { label: '📏 Đi Đo Khảo Sát Thực Địa', color: '#F97316' },
+                site_survey: { label: '📏 Khảo Sát Mặt Bằng', color: '#F97316' },
                 fast_support: { label: '⚡ Vẽ Phản Ứng Nhanh', color: '#8B5CF6' },
                 technical_draw: { label: '📐 Vẽ Kết Cấu Chi Tiết', color: '#3B82F6' },
                 cnc_export: { label: '🖨️ Xuất File CNC', color: '#10B981' }
@@ -5645,7 +5662,7 @@ export const UI = {
     const freshTask = DB.getKtsTasks().find(t => t.id === task.id) || task;
 
     const typeMap = {
-      site_survey: { label: '📏 Đi Đo Khảo Sát Thực Địa', color: '#F97316' },
+      site_survey: { label: '📏 Khảo Sát Mặt Bằng', color: '#F97316' },
       fast_support: { label: '⚡ Vẽ Phản Ứng Nhanh Hỗ Trợ Sale', color: '#8B5CF6' },
       technical_draw: { label: '📐 Vẽ Kết Cấu Chi Tiết', color: '#3B82F6' },
       cnc_export: { label: '🖨️ Xuất File CNC', color: '#10B981' }
@@ -5865,7 +5882,7 @@ export const UI = {
     const tasks = DB.getKtsTasks(user.id, user.role).filter(t => t.taskType === taskType && t.status !== 'completed');
 
     const titleMap = {
-      site_survey: '📏 Chi Tiết Task: Đi Đo Khảo Sát Thực Địa',
+      site_survey: '📏 Chi Tiết Task: Khảo Sát Mặt Bằng',
       fast_support: '⚡ Chi Tiết Task: Vẽ Phản Ứng Nhanh Hỗ Trợ Sale',
       technical_draw: '📐 Chi Tiết Task: Vẽ Kết Cấu Chi Tiết',
       cnc_export: '🖨️ Chi Tiết Task: Xuất File CNC'

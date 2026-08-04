@@ -31,7 +31,7 @@ const DEFAULT_USERS = [
 // Lead stages
 export const LEAD_STAGES = [
   { id: 'new', label: 'Khách Mới', icon: 'fa-user-plus', color: '#64748B' },
-  { id: 'survey', label: 'Khảo Sát Thực Địa', icon: 'fa-ruler-combined', color: '#3B82F6' },
+  { id: 'survey', label: 'Khảo Sát Mặt Bằng', icon: 'fa-ruler-combined', color: '#3B82F6' },
   { id: 'design_draft', label: 'Thiết Kế Sơ Bộ', icon: 'fa-drafting-compass', color: '#8B5CF6' },
   { id: 'quote_sent', label: 'Gửi Báo Giá Sơ Bộ', icon: 'fa-file-invoice-dollar', color: '#F59E0B' },
   { id: 'negotiation', label: 'Sửa TK & Báo Giá Lại', icon: 'fa-sync-alt', color: '#EC4899' },
