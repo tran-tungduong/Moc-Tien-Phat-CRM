@@ -1899,14 +1899,14 @@ export const UI = {
         </div>
 
         <!-- Clear action hierarchy -->
-        <div style="margin-top:2px; padding:12px; border:1px solid var(--border-color); border-radius:12px; background:rgba(255,255,255,0.02);">
+        <div style="margin-top:2px; padding:11px; border:1px solid var(--border-color); border-radius:12px; background:rgba(255,255,255,0.018);">
           <div style="font-size:0.72rem; color:var(--text-muted); margin-bottom:9px; font-weight:700; text-transform:uppercase; letter-spacing:0.4px;">Thao Tác Nhanh</div>
           ${canEditLead ? `
             <div style="display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:8px;">
-              <button id="drawer-create-apt-btn" style="background:#3B82F6; border:1px solid #3B82F6; color:white; border-radius:10px; padding:11px 10px; font-size:0.8rem; font-weight:800; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:7px;">
+              <button id="drawer-create-apt-btn" style="background:#3B82F6; border:1px solid #3B82F6; color:white; border-radius:9px; padding:10px; font-size:0.8rem; font-weight:700; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:7px; box-shadow:0 3px 8px rgba(59,130,246,0.18);">
                 <i class="fas fa-calendar-plus"></i> Đặt Lịch Hẹn
               </button>
-              <button id="drawer-assign-kts-btn" style="background:#8B5CF6; border:1px solid #8B5CF6; color:white; border-radius:10px; padding:11px 10px; font-size:0.8rem; font-weight:800; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:7px;">
+              <button id="drawer-assign-kts-btn" style="background:rgba(139,92,246,0.1); border:1px solid rgba(139,92,246,0.35); color:#7C3AED; border-radius:9px; padding:10px; font-size:0.8rem; font-weight:700; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:7px;">
                 <i class="fas fa-drafting-compass"></i> Giao Việc KTS
               </button>
               ${lead.stage === 'won' ? `<button id="drawer-create-contract-btn" style="grid-column:span 2; background:#10B981; border:1px solid #10B981; color:white; border-radius:10px; padding:11px 10px; font-size:0.8rem; font-weight:800; cursor:pointer;"><i class="fas fa-file-signature"></i> Lên Hợp Đồng</button>` : ''}
