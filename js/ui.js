@@ -4480,11 +4480,12 @@ export const UI = {
     };
     const reportDate = selectedDate || localDateKey();
     const ktsUsers = DB.getUsers().filter(u => u.role === 'kts');
-    const allTasks = DB.getKtsTasks().filter(t => t.taskType !== 'site_survey');
+    const allTasks = DB.getKtsTasks();
     const isOnDate = value => value && localDateKey(value) === reportDate;
     const hasDailyActivity = task => isOnDate(task.createdAt) || isOnDate(task.startedAt) || isOnDate(task.completedAt);
     const visibleUsers = selectedKtsId === 'all' ? ktsUsers : ktsUsers.filter(u => u.id === selectedKtsId);
     const typeMap = {
+      site_survey: '📏 Khảo sát thực địa',
       fast_support: '⚡ Vẽ phản ứng nhanh',
       technical_draw: '📐 Vẽ kết cấu chi tiết',
       cnc_export: '🖨️ Xuất file CNC'
