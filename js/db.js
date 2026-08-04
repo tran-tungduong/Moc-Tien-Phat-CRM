@@ -1841,7 +1841,9 @@ export const DB = {
       const oldTask = db.ktsTasks[idx];
       const now = new Date().toISOString();
       const history = [...(oldTask.history || [])];
-      const workSessions = [...(oldTask.workSessions || [])];
+      const workSessions = Array.isArray(fields.workSessions)
+        ? fields.workSessions.map(session => ({ ...session }))
+        : [...(oldTask.workSessions || [])];
 
       if (fields.status === 'in_progress' && oldTask.status !== 'in_progress') {
         fields.startedAt = oldTask.startedAt || fields.startedAt || now;
@@ -1873,6 +1875,18 @@ export const DB = {
         });
       }
 
+      if (fields.adminAuditAction) {
+        history.push({
+          timestamp: now,
+          action: `🛡️ ${fields.adminAuditAction}`,
+          user: fields.adminAuditUser || 'Admin',
+          note: fields.adminAuditNote || 'Điều chỉnh bởi quản trị viên'
+        });
+        delete fields.adminAuditAction;
+        delete fields.adminAuditUser;
+        delete fields.adminAuditNote;
+      }
+
       db.ktsTasks[idx] = { ...oldTask, ...fields, workSessions, history, updatedAt: now };
       this.save(db);
 
@@ -1890,6 +1904,7 @@ export const DB = {
           ].filter(Boolean).join('\n')
         };
         if (fields.status === 'completed') appointmentFields.status = 'done';
+        if (fields.status === 'paused' || fields.status === 'in_progress') appointmentFields.status = 'pending';
         this.updateAppointment(updatedTask.appointmentId, appointmentFields, null, false);
       }
 

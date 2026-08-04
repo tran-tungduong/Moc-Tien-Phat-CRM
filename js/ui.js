@@ -5485,6 +5485,83 @@ export const UI = {
     });
   },
 
+  openAdminKtsActivityEditor(task, user, onSave = null) {
+    if (user?.role !== 'manager') return;
+    let sessions = (task.workSessions || []).map(session => ({ ...session }));
+    if (sessions.length === 0 && task.startedAt) {
+      sessions = [{ startedAt: task.startedAt, endedAt: task.completedAt || '' }];
+    }
+    const renderEditor = () => {
+      const html = `
+        <form id="admin-kts-activity-form" style="display:flex; flex-direction:column; gap:13px;">
+          <div style="background:rgba(245,158,11,0.08); border:1px solid rgba(245,158,11,0.3); border-radius:9px; padding:9px 11px; font-size:0.74rem; color:#F59E0B;"><i class="fas fa-shield-alt"></i> Chỉ Admin được điều chỉnh. Mọi thay đổi sẽ được ghi vào nhật ký quản trị.</div>
+          <div class="form-group"><label class="form-label">Thời Điểm Giao Việc</label><input id="admin-task-created-at" class="form-input" value="${formatDateTime24(task.createdAt)}" readonly></div>
+          <div style="display:flex; justify-content:space-between; align-items:center;"><label class="form-label" style="margin:0;">Các Phiên Làm Việc</label><button type="button" id="admin-add-work-session" class="btn-secondary btn-sm"><i class="fas fa-plus"></i> Thêm phiên</button></div>
+          <div id="admin-work-session-list" style="display:flex; flex-direction:column; gap:8px;">
+            ${sessions.length === 0 ? '<div style="font-size:0.74rem; color:var(--text-muted); text-align:center; padding:12px; border:1px dashed var(--border-color); border-radius:8px;">Chưa có phiên làm việc.</div>' : sessions.map((session, index) => `
+              <div class="admin-work-session-row" data-index="${index}" style="display:grid; grid-template-columns:1fr 1fr auto; gap:7px; align-items:end; background:rgba(255,255,255,0.025); padding:9px; border-radius:8px; border:1px solid var(--border-color);">
+                <div><label class="form-label">Bắt đầu</label><input class="form-input admin-session-start" value="${formatDateTime24(session.startedAt)}" placeholder="dd/mm/yyyy HH:mm" readonly></div>
+                <div><label class="form-label">Kết thúc</label><input class="form-input admin-session-end" value="${session.endedAt ? formatDateTime24(session.endedAt) : ''}" placeholder="Đang tiếp tục" readonly></div>
+                <button type="button" class="admin-remove-session" data-index="${index}" title="Xóa phiên sai" style="height:40px; width:40px; border-radius:8px; border:1px solid rgba(239,68,68,0.3); background:rgba(239,68,68,0.1); color:#EF4444; cursor:pointer;"><i class="fas fa-trash"></i></button>
+              </div>`).join('')}
+          </div>
+          <div class="form-group"><label class="form-label">Thời Điểm Hoàn Thành</label><input id="admin-task-completed-at" class="form-input" value="${task.completedAt ? formatDateTime24(task.completedAt) : ''}" placeholder="Chưa hoàn thành" readonly></div>
+          <div class="form-group"><label class="form-label">Lý Do Điều Chỉnh <span style="color:#EF4444;">*</span></label><textarea id="admin-activity-reason" class="form-textarea" rows="2" placeholder="Ví dụ: KTS bấm nhầm giờ bắt đầu" required></textarea></div>
+          <button type="submit" class="btn-primary"><i class="fas fa-save"></i> Lưu Điều Chỉnh</button>
+        </form>`;
+      const editorModal = Modal.create(`Điều Chỉnh Hoạt Động KTS - ${task.title}`, html);
+      attachNativeDatePicker(document.getElementById('admin-task-created-at'), true);
+      attachNativeDatePicker(document.getElementById('admin-task-completed-at'), true);
+      document.querySelectorAll('.admin-session-start, .admin-session-end').forEach(input => attachNativeDatePicker(input, true));
+      document.getElementById('admin-add-work-session')?.addEventListener('click', () => {
+        sessions.push({ startedAt: new Date().toISOString(), endedAt: '' });
+        editorModal.close();
+        renderEditor();
+      });
+      document.querySelectorAll('.admin-remove-session').forEach(button => button.addEventListener('click', () => {
+        sessions.splice(Number(button.getAttribute('data-index')), 1);
+        editorModal.close();
+        renderEditor();
+      }));
+      document.getElementById('admin-kts-activity-form')?.addEventListener('submit', event => {
+        event.preventDefault();
+        const reason = document.getElementById('admin-activity-reason').value.trim();
+        const createdDate = parseDateTime24(document.getElementById('admin-task-created-at').value);
+        const completedValue = document.getElementById('admin-task-completed-at').value.trim();
+        const completedDate = completedValue ? parseDateTime24(completedValue) : null;
+        const rows = [...document.querySelectorAll('.admin-work-session-row')];
+        const parsedSessions = [];
+        for (const row of rows) {
+          const startedDate = parseDateTime24(row.querySelector('.admin-session-start').value);
+          const endedValue = row.querySelector('.admin-session-end').value.trim();
+          const endedDate = endedValue ? parseDateTime24(endedValue) : null;
+          if (!startedDate || (endedValue && !endedDate) || (endedDate && endedDate < startedDate)) {
+            Toast.error('Có phiên làm việc chưa đúng thời gian hoặc kết thúc trước khi bắt đầu.');
+            return;
+          }
+          parsedSessions.push({ startedAt: startedDate.toISOString(), endedAt: endedDate ? endedDate.toISOString() : null });
+        }
+        if (!reason || !createdDate || (completedValue && !completedDate)) {
+          Toast.error('Vui lòng nhập thời gian hợp lệ và lý do điều chỉnh.');
+          return;
+        }
+        DB.updateKtsTask(task.id, {
+          createdAt: createdDate.toISOString(),
+          startedAt: parsedSessions[0]?.startedAt || '',
+          completedAt: completedDate ? completedDate.toISOString() : '',
+          workSessions: parsedSessions,
+          adminAuditAction: 'Admin điều chỉnh hoạt động',
+          adminAuditUser: user.name,
+          adminAuditNote: reason
+        });
+        Toast.success('Đã điều chỉnh hoạt động và ghi nhật ký quản trị.');
+        editorModal.close();
+        if (onSave) onSave();
+      });
+    };
+    renderEditor();
+  },
+
   openKtsTaskDetailModal(task, user = null, onSave = null) {
     if (!user) user = DB.getCurrentUser();
     const freshTask = DB.getKtsTasks().find(t => t.id === task.id) || task;
@@ -5657,6 +5734,16 @@ export const UI = {
           <button class="btn-secondary" id="btn-close-detail-modal" style="padding:6px 14px; font-size:0.8rem; border-radius:6px; cursor:pointer;">Đóng</button>
         </div>
 
+        ${user.role === 'manager' ? `
+          <div style="background:rgba(245,158,11,0.06); border:1px solid rgba(245,158,11,0.25); border-radius:10px; padding:10px;">
+            <div style="font-size:0.7rem; color:#F59E0B; font-weight:800; margin-bottom:8px;"><i class="fas fa-user-shield"></i> QUẢN TRỊ HOẠT ĐỘNG · CHỈ ADMIN</div>
+            <div style="display:flex; gap:7px; flex-wrap:wrap;">
+              ${isCompleted ? `<button id="btn-admin-reopen-task" class="btn-secondary btn-sm" style="color:#3B82F6; border-color:rgba(59,130,246,0.35);"><i class="fas fa-undo"></i> Mở Lại Công Việc</button>` : ''}
+              <button id="btn-admin-edit-activity" class="btn-secondary btn-sm" style="color:#F59E0B; border-color:rgba(245,158,11,0.35);"><i class="fas fa-clock"></i> Điều Chỉnh Hoạt Động</button>
+              <button id="btn-admin-delete-task" class="btn-secondary btn-sm" style="color:#EF4444; border-color:rgba(239,68,68,0.35); margin-left:auto;"><i class="fas fa-trash"></i> Xóa Công Việc</button>
+            </div>
+          </div>` : ''}
+
       </div>
     `;
 
@@ -5680,6 +5767,33 @@ export const UI = {
     document.getElementById('btn-detail-complete-task')?.addEventListener('click', () => {
       modal.close();
       this.openCompleteKtsTaskModal(freshTask, user, onSave);
+    });
+
+    document.getElementById('btn-admin-reopen-task')?.addEventListener('click', () => {
+      DB.updateKtsTask(freshTask.id, {
+        status: 'paused',
+        completedAt: '',
+        adminAuditAction: 'Admin mở lại công việc đã hoàn thành',
+        adminAuditUser: user.name,
+        adminAuditNote: 'Chuyển về trạng thái Tạm dừng để KTS có thể tiếp tục làm'
+      });
+      Toast.success('Đã mở lại công việc. KTS có thể bấm Tiếp tục làm.');
+      modal.close();
+      if (onSave) onSave();
+    });
+
+    document.getElementById('btn-admin-edit-activity')?.addEventListener('click', () => {
+      modal.close();
+      this.openAdminKtsActivityEditor(freshTask, user, onSave);
+    });
+
+    document.getElementById('btn-admin-delete-task')?.addEventListener('click', () => {
+      this.confirmDelete('Xóa Công Việc KTS', `Bạn có chắc chắn muốn xóa toàn bộ công việc "${freshTask.title}" không?`, () => {
+        DB.deleteKtsTask(freshTask.id);
+        Toast.success('Đã xóa công việc KTS.');
+        modal.close();
+        if (onSave) onSave();
+      });
     });
   },
 
