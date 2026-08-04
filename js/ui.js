@@ -5223,11 +5223,12 @@ export const UI = {
   renderKtsTasks(user, filterType = 'all') {
     this._setActiveNav('kts_tasks');
     const body = this._getBody();
-    // Khảo sát được quản lý và hiển thị tại Lịch Hẹn để tránh trùng một việc ở hai nơi.
-    const tasks = DB.getKtsTasks(user.id, user.role).filter(t => t.taskType !== 'site_survey');
+    // Lịch khảo sát và Công Việc KTS dùng chung một task liên kết để đồng bộ trạng thái hai chiều.
+    const tasks = DB.getKtsTasks(user.id, user.role);
 
     let filtered = tasks;
-    if (filterType === 'fast_support') filtered = tasks.filter(t => t.taskType === 'fast_support');
+    if (filterType === 'site_survey') filtered = tasks.filter(t => t.taskType === 'site_survey');
+    else if (filterType === 'fast_support') filtered = tasks.filter(t => t.taskType === 'fast_support');
     else if (filterType === 'technical_draw') filtered = tasks.filter(t => t.taskType === 'technical_draw');
     else if (filterType === 'cnc_export') filtered = tasks.filter(t => t.taskType === 'cnc_export');
     else if (filterType === 'completed') filtered = tasks.filter(t => t.status === 'completed');
@@ -5246,6 +5247,7 @@ export const UI = {
         <div class="filter-tabs" style="margin-bottom:16px;">
           <button class="tab-btn ${filterType === 'all' ? 'active' : ''}" data-type="all">Tất Cả (${tasks.length})</button>
           <button class="tab-btn ${filterType === 'pending' ? 'active' : ''}" data-type="pending">⏳ Đang Xử Lý (${tasks.filter(t => t.status !== 'completed').length})</button>
+          <button class="tab-btn ${filterType === 'site_survey' ? 'active' : ''}" data-type="site_survey">📏 Khảo Sát Mặt Bằng (${tasks.filter(t => t.taskType === 'site_survey').length})</button>
           <button class="tab-btn ${filterType === 'fast_support' ? 'active' : ''}" data-type="fast_support">⚡ Vẽ Phản Ứng Nhanh (${tasks.filter(t => t.taskType === 'fast_support').length})</button>
           <button class="tab-btn ${filterType === 'technical_draw' ? 'active' : ''}" data-type="technical_draw">📐 Kết Cấu Chi Tiết (${tasks.filter(t => t.taskType === 'technical_draw').length})</button>
           <button class="tab-btn ${filterType === 'cnc_export' ? 'active' : ''}" data-type="cnc_export">🖨️ Xuất File CNC (${tasks.filter(t => t.taskType === 'cnc_export').length})</button>
