@@ -1839,11 +1839,11 @@ export const UI = {
           <div style="background:rgba(139,92,246,0.08); border:1.5px solid rgba(139,92,246,0.35); border-radius:10px; padding:10px; color:#8B5CF6;">
             <div style="display:flex; justify-content:space-between; align-items:center;">
               <strong style="font-size:0.78rem;"><i class="fas fa-ruler-combined"></i> THÔNG TIN ĐO ĐẠC THỰC ĐỊA</strong>
-              ${canEditLead ? `<button id="btn-edit-survey-info" style="background:none; border:none; color:#8B5CF6; font-size:0.75rem; font-weight:700; cursor:pointer; text-decoration:underline;">[Sửa người đi đo]</button>` : ''}
+              ${canEditLead ? `<button id="btn-edit-survey-info" style="background:none; border:none; color:#8B5CF6; font-size:0.75rem; font-weight:700; cursor:pointer; text-decoration:underline;">Sửa lịch khảo sát</button>` : ''}
             </div>
             <div style="font-size:0.88rem; font-weight:700; color:var(--text-primary); margin-top:4px;">
               📐 Người đi đo: <span style="color:#8B5CF6;">${lead.surveyBy || 'Chưa nhập tên người đo'}</span>
-              ${lead.surveyDate ? `<span style="font-size:0.75rem; color:var(--text-muted); font-weight:normal;"> (${lead.surveyDate})</span>` : ''}
+              ${lead.surveyDate ? `<span style="margin-left:6px;">${Number.isNaN(new Date(lead.surveyDate).getTime()) ? lead.surveyDate : fmt.datetimeBadges(lead.surveyDate)}</span>` : ''}
             </div>
             ${lead.surveyNote ? `<div style="font-size:0.75rem; color:var(--text-secondary); margin-top:3px;">• Ghi chú hiện trạng: ${lead.surveyNote}</div>` : ''}
           </div>
@@ -2163,47 +2163,13 @@ export const UI = {
   },
 
   openSurveyInfoModal(lead, user, onDone) {
-    const html = `
-      <form id="survey-info-form" style="display:flex; flex-direction:column; gap:12px;">
-        <div style="background:rgba(139,92,246,0.08); border:1px solid rgba(139,92,246,0.3); border-radius:10px; padding:10px; font-size:0.78rem; color:#8B5CF6;">
-          <i class="fas fa-ruler-combined"></i> Nhập nhân sự / KTS đi khảo sát đo đạc thực địa công trình
-        </div>
-        <div>
-          <label class="form-label">Người / KTS Đi Đo Đạc *</label>
-          <input type="text" id="si-surveyor" class="form-input" placeholder="Ví dụ: KTS Hoàng Long, Team TK A, KTS Huy..." value="${lead.surveyBy || ''}" required>
-        </div>
-        <div>
-          <label class="form-label">Thời Gian Đo Đạc (Không bắt buộc)</label>
-          <input type="text" id="si-date" class="form-input" placeholder="Ví dụ: 14:30 - Ngày 25/07" value="${lead.surveyDate || ''}">
-        </div>
-        <div>
-          <label class="form-label">Ghi Chú Công Trình / Kích Thước Hiện Trạng</label>
-          <textarea id="si-note" class="form-textarea" placeholder="Nhập ghi chú hiện trạng căn hộ..." style="height:60px;">${lead.surveyNote || ''}</textarea>
-        </div>
-        <button type="submit" class="btn-primary" style="background:#8B5CF6; border-color:#8B5CF6;"><i class="fas fa-save"></i> Lưu Thông Tin Đo Đạc & Cập Nhật Giai Đoạn</button>
-      </form>
-    `;
-
-    const modal = Modal.create(`Khảo Sát Thực Địa - ${lead.name}`, html);
-
-    document.getElementById('survey-info-form')?.addEventListener('submit', (e) => {
-      e.preventDefault();
-      const surveyBy = document.getElementById('si-surveyor').value.trim();
-      const surveyDate = document.getElementById('si-date').value.trim();
-      const surveyNote = document.getElementById('si-note').value.trim();
-
-      DB.updateLead(lead.id, {
-        stage: 'survey',
-        surveyBy,
-        surveyDate,
-        surveyNote
-      }, user.id);
-
-      Toast.success('Đã lưu thông tin đo đạc thực địa!');
-      modal.close();
+    const existingSurveyTask = DB.getKtsTasks()
+      .filter(t => t.leadId === lead.id && t.taskType === 'site_survey' && t.status !== 'completed')
+      .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))[0] || null;
+    this.openAssignKtsTaskForm(lead, user, () => {
       if (onDone) onDone();
       this.openLeadDrawer(lead.id, user);
-    });
+    }, existingSurveyTask, { lockTaskType: 'site_survey' });
   },
 
   openRevisionModal(lead, user, onDone) {
@@ -4770,7 +4736,7 @@ export const UI = {
   },
 
   // ── KTS Task Assignment & Management ─────────────────
-  openAssignKtsTaskForm(lead, user, onSave = null, editTask = null) {
+  openAssignKtsTaskForm(lead, user, onSave = null, editTask = null, options = {}) {
     const isEdit = !!editTask;
     const allUsers = DB.getUsers();
     const ktsUsers = DB.getUsers().filter(u => u.role === 'kts' || u.id === 'usr_long_tran');
@@ -4817,7 +4783,7 @@ export const UI = {
         <div class="form-row">
           <div class="form-group">
             <label class="form-label">Loại Việc KTS <span style="color:#EF4444;">*</span></label>
-            <select id="kts-assign-task-type" class="form-select" required>
+            <select id="kts-assign-task-type" class="form-select" required ${options.lockTaskType ? 'disabled' : ''}>
               <option value="site_survey" ${isEdit && editTask.taskType === 'site_survey' ? 'selected' : ''}>📏 Đi đo khảo sát thực địa</option>
               <option value="fast_support" ${isEdit && editTask.taskType === 'fast_support' ? 'selected' : ''}>⚡ Vẽ phản ứng nhanh hỗ trợ Sale tư vấn</option>
               <option value="technical_draw" ${isEdit && editTask.taskType === 'technical_draw' ? 'selected' : ''}>📐 Vẽ kết cấu chi tiết</option>
@@ -4927,22 +4893,37 @@ export const UI = {
           requirement: requirement,
           deadline: new Date(deadline).toISOString()
         };
+        const syncSurveyToLead = () => {
+          if (!isSurvey) return;
+          DB.updateLead(lead.id, {
+            stage: 'survey',
+            surveyBy: ktsUser.name,
+            surveyDate: taskPayload.deadline,
+            surveyNote: [surveyAddress ? `Địa chỉ: ${surveyAddress}` : '', requirement].filter(Boolean).join(' · ')
+          }, user.id);
+        };
 
         if (isEdit) {
           DB.updateKtsTask(editTask.id, taskPayload);
+          syncSurveyToLead();
           DB.addLeadHistory(lead.id, `✏️ Cập nhật ${isSurvey ? 'việc khảo sát' : 'việc KTS'} (${title}) · Người thực hiện: ${ktsUser.name} · Hạn: ${fmt.datetime(deadline)}`, user.name);
           modal.close();
-          Toast.success('Đã cập nhật công việc KTS.');
+          Toast.success(isSurvey ? 'Đã cập nhật lịch khảo sát và người đi đo.' : 'Đã cập nhật công việc KTS.');
           if (onSave) onSave();
           return;
         }
 
         DB.addKtsTask(taskPayload);
+        syncSurveyToLead();
 
         DB.addLeadHistory(lead.id, `${isSurvey ? '📏 Giao việc khảo sát' : '🚀 Giao việc KTS'} (${title}) cho ${ktsUser.name} · Hạn: ${fmt.datetime(deadline)}`, user.name);
 
         modal.close();
         Toast.success(`🚀 Đã giao việc thành công cho ${ktsUser.name}!`);
+        if (options.lockTaskType) {
+          if (onSave) onSave();
+          return;
+        }
 
         const successModal = Modal.create(`🚀 Giao Việc Thành Công!`, `
           <div style="text-align:center; padding:16px 8px;">
