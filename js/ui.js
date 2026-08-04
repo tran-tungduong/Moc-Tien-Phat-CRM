@@ -4533,11 +4533,13 @@ export const UI = {
     };
     const reportDate = selectedDate || localDateKey();
     const ktsUsers = DB.getUsers().filter(u => u.role === 'kts');
+    const isSelfOnly = user.role === 'kts';
+    const effectiveKtsId = isSelfOnly ? user.id : selectedKtsId;
     const allTasks = DB.getKtsTasks();
     const isOnDate = value => value && localDateKey(value) === reportDate;
     const hasDailyActivity = task => isOnDate(task.createdAt) || isOnDate(task.startedAt) || isOnDate(task.completedAt) ||
       (task.workSessions || []).some(session => isOnDate(session.startedAt) || isOnDate(session.endedAt));
-    const visibleUsers = selectedKtsId === 'all' ? ktsUsers : ktsUsers.filter(u => u.id === selectedKtsId);
+    const visibleUsers = effectiveKtsId === 'all' ? ktsUsers : ktsUsers.filter(u => u.id === effectiveKtsId);
     const typeMap = {
       site_survey: '📏 Khảo sát thực địa',
       fast_support: '⚡ Vẽ phản ứng nhanh',
@@ -4611,7 +4613,7 @@ export const UI = {
         </div>
         <div class="section-card" style="padding:12px 14px; display:flex; gap:12px; align-items:flex-end; flex-wrap:wrap;">
           <div class="form-group" style="margin:0;"><label class="form-label">Ngày báo cáo</label><input type="text" id="kts-daily-date" class="form-input" value="${formatDateOnly(`${reportDate}T00:00:00`)}" placeholder="dd/mm/yyyy" inputmode="numeric"></div>
-          <div class="form-group" style="margin:0; min-width:220px;"><label class="form-label">Kiến trúc sư</label><select id="kts-daily-user" class="form-select"><option value="all">Tất cả KTS</option>${ktsUsers.map(k => `<option value="${k.id}" ${selectedKtsId === k.id ? 'selected' : ''}>${k.name}</option>`).join('')}</select></div>
+          ${isSelfOnly ? `<div style="margin:0; min-width:220px;"><label class="form-label">Kiến trúc sư</label><div class="form-input" style="display:flex; align-items:center; gap:7px; font-weight:800; color:var(--primary);"><i class="fas fa-user-check"></i> ${user.name}</div></div>` : `<div class="form-group" style="margin:0; min-width:220px;"><label class="form-label">Kiến trúc sư</label><select id="kts-daily-user" class="form-select"><option value="all">Tất cả KTS</option>${ktsUsers.map(k => `<option value="${k.id}" ${effectiveKtsId === k.id ? 'selected' : ''}>${k.name}</option>`).join('')}</select></div>`}
         </div>
         <div class="kpi-grid" style="margin-bottom:16px;">
           <div class="kpi-card"><div class="kpi-icon" style="color:#8B5CF6;"><i class="fas fa-inbox"></i></div><div class="kpi-body"><div class="kpi-val">${totalAssigned}</div><div class="kpi-label">Việc Được Giao</div></div></div>
@@ -4654,18 +4656,18 @@ export const UI = {
         Toast.error('Ngày báo cáo chưa đúng định dạng dd/mm/yyyy.');
         return;
       }
-      this.renderKtsDailyReport(user, dateKey, selectedKtsId);
+      this.renderKtsDailyReport(user, dateKey, effectiveKtsId);
     });
     document.getElementById('kts-daily-user')?.addEventListener('change', e => this.renderKtsDailyReport(user, reportDate, e.target.value));
     document.querySelectorAll('.kts-daily-event').forEach(btn => btn.addEventListener('click', () => {
       const task = DB.getKtsTasks().find(t => t.id === btn.getAttribute('data-id'));
-      if (task) this.openKtsTaskDetailModal(task, user, () => this.renderKtsDailyReport(user, reportDate, selectedKtsId));
+      if (task) this.openKtsTaskDetailModal(task, user, () => this.renderKtsDailyReport(user, reportDate, effectiveKtsId));
     }));
   },
 
   renderKtsReports(user, filterTaskType = 'all', searchQuery = '') {
-    if (user.role === 'manager' || user.role === 'sales') {
-      this.renderKtsDailyReport(user);
+    if (user.role === 'manager' || user.role === 'sales' || user.role === 'kts') {
+      this.renderKtsDailyReport(user, null, user.role === 'kts' ? user.id : 'all');
       return;
     }
     this._setActiveNav('kts_reports');
