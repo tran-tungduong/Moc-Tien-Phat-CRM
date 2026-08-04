@@ -4738,6 +4738,7 @@ export const UI = {
   // ── KTS Task Assignment & Management ─────────────────
   openAssignKtsTaskForm(lead, user, onSave = null, editTask = null, options = {}) {
     const isEdit = !!editTask;
+    const isSurveyStageFlow = options.lockTaskType === 'site_survey';
     const allUsers = DB.getUsers();
     const ktsUsers = DB.getUsers().filter(u => u.role === 'kts' || u.id === 'usr_long_tran');
     if (ktsUsers.length === 0) {
@@ -4780,10 +4781,17 @@ export const UI = {
           <div style="font-size:0.72rem; color:#F59E0B;">Người giao việc sẽ là người nội bộ chịu trách nhiệm cập nhật tiến độ.</div>
         </div>
 
-        <div class="form-row">
+        ${isSurveyStageFlow ? `
+          <input type="hidden" id="kts-assign-task-type" value="site_survey">
+          <div class="form-group">
+            <label class="form-label">Ngày & Giờ Hẹn Khách <span style="color:#EF4444;">*</span></label>
+            <input type="datetime-local" id="kts-assign-deadline" class="form-input" value="${defaultDeadlineStr}" required>
+            <div style="font-size:0.7rem; color:var(--text-muted); margin-top:5px;"><i class="fas fa-calendar-check" style="color:#3B82F6;"></i> Thời gian này sẽ xuất hiện trong Lịch Hẹn của người đi khảo sát.</div>
+          </div>
+        ` : `<div class="form-row">
           <div class="form-group">
             <label class="form-label">Loại Việc KTS <span style="color:#EF4444;">*</span></label>
-            <select id="kts-assign-task-type" class="form-select" required ${options.lockTaskType ? 'disabled' : ''}>
+            <select id="kts-assign-task-type" class="form-select" required>
               <option value="site_survey" ${isEdit && editTask.taskType === 'site_survey' ? 'selected' : ''}>📏 Đi đo khảo sát thực địa</option>
               <option value="fast_support" ${isEdit && editTask.taskType === 'fast_support' ? 'selected' : ''}>⚡ Vẽ phản ứng nhanh hỗ trợ Sale tư vấn</option>
               <option value="technical_draw" ${isEdit && editTask.taskType === 'technical_draw' ? 'selected' : ''}>📐 Vẽ kết cấu chi tiết</option>
@@ -4795,7 +4803,7 @@ export const UI = {
             <label class="form-label">Hạn Hoàn Thành (Deadline) <span style="color:#EF4444;">*</span></label>
             <input type="datetime-local" id="kts-assign-deadline" class="form-input" value="${defaultDeadlineStr}" required>
           </div>
-        </div>
+        </div>`}
 
         <div id="kts-survey-fields" style="display:none; background:rgba(249,115,22,0.07); border:1px solid rgba(249,115,22,0.22); padding:12px; border-radius:10px;">
           <div class="form-group"><label class="form-label">Địa chỉ khảo sát <span style="color:#EF4444;">*</span></label><input id="kts-survey-address" class="form-input" value="${isEdit ? (editTask.surveyAddress || lead.address || '') : (lead.address || '')}" placeholder="Địa chỉ thực địa"></div>
@@ -4806,23 +4814,23 @@ export const UI = {
         </div>
 
         <div class="form-group">
-          <label class="form-label">Tên Yêu Cầu / Tên Công Việc <span style="color:#EF4444;">*</span></label>
+          <label class="form-label">${isSurveyStageFlow ? 'Nội Dung Lịch Hẹn' : 'Tên Yêu Cầu / Tên Công Việc'} <span style="color:#EF4444;">*</span></label>
           <input type="text" id="kts-assign-title" class="form-input" placeholder="Ví dụ: Vẽ 3D phương án bếp màu gỗ phối trắng..." value="${isEdit ? editTask.title : `Vẽ 3D phương án ${lead.interestedIn || 'nội thất'} cho ${lead.name}`}" required>
         </div>
 
         <div class="form-group">
-          <label class="form-label">Chi Tiết Yêu Cầu Cho KTS</label>
+          <label class="form-label">${isSurveyStageFlow ? 'Ghi Chú Khảo Sát' : 'Chi Tiết Yêu Cầu Cho KTS'}</label>
           <textarea id="kts-assign-req" class="form-textarea" rows="3" placeholder="Mô tả cụ thể kích thước, màu sắc, vật liệu hoặc yêu cầu từ khách...">${isEdit ? (editTask.requirement || '') : (lead.note ? `Ghi chú từ Lead: ${lead.note}` : '')}</textarea>
         </div>
 
         <div style="display:flex; gap:10px; justify-content:flex-end; margin-top:10px;">
           <button type="button" class="btn-cancel" id="btn-cancel-kts-assign" style="background:rgba(255,255,255,0.06); color:var(--text-secondary); border:1px solid var(--border-color); padding:10px 18px; border-radius:8px; font-weight:600; cursor:pointer;">Hủy</button>
-          <button type="submit" class="btn-primary" style="padding:10px 22px; border-radius:8px; font-weight:700; background:linear-gradient(135deg, #8B5CF6, #6366F1);"><i class="fas ${isEdit ? 'fa-save' : 'fa-paper-plane'}"></i> ${isEdit ? 'Lưu Thay Đổi' : 'Giao Việc Ngay'}</button>
+          <button type="submit" class="btn-primary" style="padding:10px 22px; border-radius:8px; font-weight:700; background:linear-gradient(135deg, #8B5CF6, #6366F1);"><i class="fas ${isEdit ? 'fa-save' : (isSurveyStageFlow ? 'fa-calendar-check' : 'fa-paper-plane')}"></i> ${isSurveyStageFlow ? (isEdit ? 'Cập Nhật Lịch Khảo Sát' : 'Tạo Lịch Khảo Sát') : (isEdit ? 'Lưu Thay Đổi' : 'Giao Việc Ngay')}</button>
         </div>
       </form>
     `;
 
-    const modal = Modal.create(`${isEdit ? '✏️ Sửa Công Việc KTS' : '🚀 Giao Việc Cho KTS'} - ${lead.name}`, html);
+    const modal = Modal.create(isSurveyStageFlow ? `${isEdit ? '✏️ Sửa' : '📅 Tạo'} Lịch Khảo Sát - ${lead.name}` : `${isEdit ? '✏️ Sửa Công Việc KTS' : '🚀 Giao Việc Cho KTS'} - ${lead.name}`, html);
 
     document.getElementById('btn-cancel-kts-assign')?.addEventListener('click', () => modal.close());
 
@@ -4863,7 +4871,7 @@ export const UI = {
         const requirement = document.getElementById('kts-assign-req').value.trim();
 
         if (!title || !deadline || !ktsUser || (isExternal && !externalName)) {
-          Toast.error('Vui lòng điền tiêu đề và hạn chót hoàn thành.');
+          Toast.error(isSurveyStageFlow ? 'Vui lòng điền nội dung và ngày giờ hẹn khách.' : 'Vui lòng điền tiêu đề và hạn chót hoàn thành.');
           return;
         }
         const surveyAddress = document.getElementById('kts-survey-address').value.trim();
