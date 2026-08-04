@@ -5151,12 +5151,46 @@ export const UI = {
 
     // Assign button listener for admin/sales
     document.getElementById('btn-kts-task-assign-modal')?.addEventListener('click', () => {
-      const leads = DB.getLeads();
+      const leads = user.role === 'manager'
+        ? DB.getLeads()
+        : DB.getLeads().filter(lead => lead.assignedTo === user.id);
       if (leads.length === 0) {
-        Toast.error('Chưa có khách hàng nào để giao việc. Vui lòng tạo khách hàng trước.');
+        Toast.error(user.role === 'manager'
+          ? 'Chưa có khách hàng nào để giao việc. Vui lòng tạo khách hàng trước.'
+          : 'Bạn chưa có khách hàng được phân công nên chưa thể giao việc KTS.');
         return;
       }
-      this.openAssignKtsTaskForm(leads[0], user, () => this.renderKtsTasks(user, filterType));
+
+      const pickerHtml = `
+        <form id="kts-customer-picker-form" style="display:flex; flex-direction:column; gap:14px;">
+          <div class="form-group">
+            <label class="form-label">Chọn Khách Hàng <span style="color:#EF4444;">*</span></label>
+            <select id="kts-customer-picker" class="form-select" required>
+              <option value="">-- Chọn khách hàng cần giao việc --</option>
+              ${leads.map(lead => {
+                const assignee = DB.getUserById(lead.assignedTo);
+                return `<option value="${lead.id}">${lead.name}${lead.interestedIn ? ` · ${lead.interestedIn}` : ''}${user.role === 'manager' && assignee ? ` · Sale: ${assignee.name}` : ''}</option>`;
+              }).join('')}
+            </select>
+          </div>
+          <div style="font-size:0.73rem; color:var(--text-muted); background:rgba(139,92,246,0.07); border:1px solid rgba(139,92,246,0.2); border-radius:8px; padding:9px 10px;">
+            <i class="fas fa-shield-alt" style="color:#8B5CF6;"></i>
+            ${user.role === 'manager' ? 'Admin có thể giao việc cho khách hàng của toàn bộ Sale.' : 'Bạn chỉ có thể giao việc cho khách hàng đang do mình phụ trách.'}
+          </div>
+          <button type="submit" class="btn-primary"><i class="fas fa-arrow-right"></i> Tiếp Tục Giao Việc</button>
+        </form>`;
+      const pickerModal = Modal.create('Chọn Khách Hàng Giao Việc KTS', pickerHtml);
+      document.getElementById('kts-customer-picker-form')?.addEventListener('submit', event => {
+        event.preventDefault();
+        const selectedId = document.getElementById('kts-customer-picker')?.value;
+        const selectedLead = leads.find(lead => lead.id === selectedId);
+        if (!selectedLead) {
+          Toast.error('Vui lòng chọn một khách hàng.');
+          return;
+        }
+        pickerModal.close();
+        this.openAssignKtsTaskForm(selectedLead, user, () => this.renderKtsTasks(user, filterType));
+      });
     });
 
     // Start task listener
