@@ -4537,6 +4537,9 @@ export const UI = {
     const effectiveKtsId = isSelfOnly ? user.id : selectedKtsId;
     const allTasks = DB.getKtsTasks();
     const isOnDate = value => value && localDateKey(value) === reportDate;
+    const reportDayStart = new Date(`${reportDate}T00:00:00`);
+    const reportDayEnd = new Date(`${reportDate}T23:59:59.999`);
+    const statusCutoff = reportDate === localDateKey() ? new Date() : reportDayEnd;
     const hasDailyActivity = task => isOnDate(task.createdAt) || isOnDate(task.startedAt) || isOnDate(task.completedAt) ||
       (task.workSessions || []).some(session => isOnDate(session.startedAt) || isOnDate(session.endedAt));
     const visibleUsers = effectiveKtsId === 'all' ? ktsUsers : ktsUsers.filter(u => u.id === effectiveKtsId);
@@ -4546,20 +4549,43 @@ export const UI = {
       technical_draw: '📐 Vẽ kết cấu chi tiết',
       cnc_export: '🖨️ Xuất file CNC'
     };
+    const getTaskStatusAtCutoff = task => {
+      const completedAt = task.completedAt ? new Date(task.completedAt) : null;
+      if (completedAt && completedAt <= statusCutoff) return 'completed';
+
+      const sessions = (task.workSessions || [])
+        .filter(session => session.startedAt && new Date(session.startedAt) <= statusCutoff)
+        .sort((a, b) => new Date(a.startedAt) - new Date(b.startedAt));
+      if (sessions.length > 0) {
+        const latestSession = sessions[sessions.length - 1];
+        if (!latestSession.endedAt || new Date(latestSession.endedAt) > statusCutoff) return 'in_progress';
+        return 'paused';
+      }
+
+      if (task.startedAt && new Date(task.startedAt) <= statusCutoff) return 'in_progress';
+      return 'pending';
+    };
+    const isOverdueAtCutoff = task => {
+      if (!task.deadline || new Date(task.deadline) >= statusCutoff) return false;
+      const completedAt = task.completedAt ? new Date(task.completedAt) : null;
+      return !completedAt || completedAt > new Date(task.deadline);
+    };
     const summaries = visibleUsers.map(kts => {
       const owned = allTasks.filter(t => t.ktsId === kts.id);
       const daily = owned.filter(hasDailyActivity);
+      const statusCounts = daily.reduce((counts, task) => {
+        counts[getTaskStatusAtCutoff(task)] += 1;
+        return counts;
+      }, { pending: 0, in_progress: 0, paused: 0, completed: 0 });
       return {
         kts,
         daily,
-        assigned: owned.filter(t => isOnDate(t.createdAt)).length,
-        started: owned.filter(t => isOnDate(t.startedAt) || (t.workSessions || []).some(session => isOnDate(session.startedAt))).length,
-        completed: owned.filter(t => isOnDate(t.completedAt)).length,
-        doing: owned.filter(t => t.status === 'in_progress').length,
-        overdue: owned.filter(t =>
-          (isKtsTaskCompletedLate(t) && isOnDate(t.completedAt)) ||
-          (t.status !== 'completed' && t.deadline && new Date(t.deadline) < new Date())
-        ).length
+        total: daily.length,
+        waiting: statusCounts.pending,
+        doing: statusCounts.in_progress,
+        paused: statusCounts.paused,
+        completed: statusCounts.completed,
+        overdue: daily.filter(isOverdueAtCutoff).length
       };
     });
     const events = [];
@@ -4577,8 +4603,6 @@ export const UI = {
       if (isOnDate(task.completedAt)) events.push({ time: task.completedAt, action: isKtsTaskCompletedLate(task) ? 'Hoàn thành trễ hạn' : 'Hoàn thành & bàn giao', color: isKtsTaskCompletedLate(task) ? '#EF4444' : '#10B981', task, kts: summary.kts });
     }));
     events.sort((a, b) => new Date(b.time) - new Date(a.time));
-    const reportDayStart = new Date(`${reportDate}T00:00:00`);
-    const reportDayEnd = new Date(`${reportDate}T23:59:59.999`);
     const minutesWorkedOnDate = task => {
       const sessions = (task.workSessions && task.workSessions.length > 0)
         ? task.workSessions
@@ -4602,9 +4626,10 @@ export const UI = {
       project.taskMap.get(event.task.id).events.push(event);
     });
     const projectGroups = [...projectMap.values()].map(project => ({ ...project, tasks: [...project.taskMap.values()], totalMinutes: [...project.taskMap.values()].reduce((sum, item) => sum + minutesWorkedOnDate(item.task), 0) }));
+    const totalTasks = summaries.reduce((sum, item) => sum + item.total, 0);
+    const totalWaiting = summaries.reduce((sum, item) => sum + item.waiting, 0);
+    const totalDoing = summaries.reduce((sum, item) => sum + item.doing, 0);
     const totalCompleted = summaries.reduce((sum, item) => sum + item.completed, 0);
-    const totalStarted = summaries.reduce((sum, item) => sum + item.started, 0);
-    const totalAssigned = summaries.reduce((sum, item) => sum + item.assigned, 0);
 
     body.innerHTML = `
       <div class="page-content fade-in">
@@ -4616,15 +4641,16 @@ export const UI = {
           ${isSelfOnly ? `<div style="margin:0; min-width:220px;"><label class="form-label">Kiến trúc sư</label><div class="form-input" style="display:flex; align-items:center; gap:7px; font-weight:800; color:var(--primary);"><i class="fas fa-user-check"></i> ${user.name}</div></div>` : `<div class="form-group" style="margin:0; min-width:220px;"><label class="form-label">Kiến trúc sư</label><select id="kts-daily-user" class="form-select"><option value="all">Tất cả KTS</option>${ktsUsers.map(k => `<option value="${k.id}" ${effectiveKtsId === k.id ? 'selected' : ''}>${k.name}</option>`).join('')}</select></div>`}
         </div>
         <div class="kpi-grid" style="margin-bottom:16px;">
-          <div class="kpi-card"><div class="kpi-icon" style="color:#8B5CF6;"><i class="fas fa-inbox"></i></div><div class="kpi-body"><div class="kpi-val">${totalAssigned}</div><div class="kpi-label">Việc Được Giao</div></div></div>
-          <div class="kpi-card"><div class="kpi-icon" style="color:#3B82F6;"><i class="fas fa-play"></i></div><div class="kpi-body"><div class="kpi-val">${totalStarted}</div><div class="kpi-label">Việc Bắt Đầu</div></div></div>
+          <div class="kpi-card"><div class="kpi-icon" style="color:#8B5CF6;"><i class="fas fa-clipboard-list"></i></div><div class="kpi-body"><div class="kpi-val">${totalTasks}</div><div class="kpi-label">Tổng Công Việc</div></div></div>
+          <div class="kpi-card"><div class="kpi-icon" style="color:#F59E0B;"><i class="fas fa-hourglass-half"></i></div><div class="kpi-body"><div class="kpi-val">${totalWaiting}</div><div class="kpi-label">Chờ Thực Hiện</div></div></div>
+          <div class="kpi-card"><div class="kpi-icon" style="color:#3B82F6;"><i class="fas fa-play"></i></div><div class="kpi-body"><div class="kpi-val">${totalDoing}</div><div class="kpi-label">Đang Thực Hiện</div></div></div>
           <div class="kpi-card"><div class="kpi-icon" style="color:#10B981;"><i class="fas fa-check"></i></div><div class="kpi-body"><div class="kpi-val">${totalCompleted}</div><div class="kpi-label">Việc Hoàn Thành</div></div></div>
         </div>
         <div class="section-card">
           <div class="section-header"><i class="fas fa-users" style="color:var(--primary);"></i><span>Tổng Hợp Theo KTS</span></div>
           <div style="overflow-x:auto; margin-top:10px;"><table style="width:100%; border-collapse:collapse; min-width:680px; font-size:0.78rem;">
-            <thead><tr style="color:var(--text-muted); border-bottom:1px solid var(--border-color);"><th style="text-align:left; padding:9px;">KTS</th><th>Phát sinh</th><th>Bắt đầu</th><th>Hoàn thành</th><th>Đang làm</th><th>Trễ hạn</th></tr></thead>
-            <tbody>${summaries.map(s => `<tr style="border-bottom:1px solid rgba(255,255,255,0.05);"><td style="padding:11px 9px; font-weight:800; color:var(--text-primary);">👤 ${s.kts.name}</td><td style="text-align:center;">${s.assigned}</td><td style="text-align:center; color:#3B82F6; font-weight:700;">${s.started}</td><td style="text-align:center; color:#10B981; font-weight:800;">${s.completed}</td><td style="text-align:center; color:#F59E0B;">${s.doing}</td><td style="text-align:center; color:#EF4444; font-weight:700;">${s.overdue}</td></tr>`).join('')}</tbody>
+            <thead><tr style="color:var(--text-muted); border-bottom:1px solid var(--border-color);"><th style="text-align:left; padding:9px;">KTS</th><th>Tổng công việc</th><th>Chờ thực hiện</th><th>Đang thực hiện</th><th>Tạm dừng</th><th>Hoàn thành</th><th>Trễ hạn</th></tr></thead>
+            <tbody>${summaries.map(s => `<tr style="border-bottom:1px solid rgba(255,255,255,0.05);"><td style="padding:11px 9px; font-weight:800; color:var(--text-primary);">👤 ${s.kts.name}</td><td style="text-align:center; font-weight:800;">${s.total}</td><td style="text-align:center; color:#F59E0B;">${s.waiting}</td><td style="text-align:center; color:#3B82F6; font-weight:700;">${s.doing}</td><td style="text-align:center; color:#A78BFA;">${s.paused}</td><td style="text-align:center; color:#10B981; font-weight:800;">${s.completed}</td><td style="text-align:center; color:#EF4444; font-weight:700;">${s.overdue}</td></tr>`).join('')}</tbody>
           </table></div>
         </div>
         <div class="section-card">
