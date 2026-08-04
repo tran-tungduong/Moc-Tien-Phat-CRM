@@ -1782,6 +1782,20 @@ export const UI = {
 
     const html = `
       <div style="display:flex; flex-direction:column; gap:14px;">
+        <!-- Customer identity: highest visual priority -->
+        <div style="background:linear-gradient(135deg, ${stage.color}13, rgba(255,255,255,0.025)); border:1px solid ${stage.color}35; border-left:5px solid ${stage.color}; border-radius:12px; padding:14px 16px;">
+          <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:12px; flex-wrap:wrap;">
+            <div style="min-width:0; flex:1;">
+              <div style="font-size:0.68rem; color:var(--text-muted); font-weight:700; text-transform:uppercase; letter-spacing:0.55px; margin-bottom:3px;">Khách hàng</div>
+              <div style="font-family:var(--font-title); font-size:1.3rem; line-height:1.25; font-weight:800; color:var(--text-primary);">${lead.name}</div>
+            </div>
+            <div style="display:flex; flex-direction:column; align-items:flex-end; gap:6px;">
+              <span style="font-size:0.74rem; padding:5px 10px; border-radius:8px; background:${stage.color}; color:white; font-weight:800; box-shadow:0 3px 10px ${stage.color}30;"><i class="fas ${stage.icon}"></i> ${stage.label}</span>
+              ${source ? `<span style="font-size:0.7rem; padding:3px 8px; border-radius:7px; background:var(--bg-secondary); color:var(--text-secondary); border:1px solid var(--border-color); font-weight:700;"><i class="${source.icon}" style="color:var(--primary);"></i> Nguồn: ${source.label}</span>` : ''}
+            </div>
+          </div>
+        </div>
+
         ${lead.stage === 'lost' ? `
           <div style="background:rgba(239,68,68,0.12); border:1px solid rgba(239,68,68,0.35); border-radius:10px; padding:10px; color:#EF4444; font-size:0.78rem;">
             <strong><i class="fas fa-times-circle"></i> Khách Hàng Thất Bại (Fail Deal)</strong>
@@ -1822,10 +1836,6 @@ export const UI = {
 
         <!-- Info -->
         <div style="background:rgba(255,255,255,0.03); border-radius:12px; padding:14px; border:1px solid var(--border-color);">
-          <div style="display:flex; flex-wrap:wrap; gap:8px; margin-bottom:10px;">
-            <span style="font-size:0.72rem; padding:3px 9px; border-radius:6px; background:${stage.color}22; color:${stage.color}; border:1px solid ${stage.color}44;"><i class="fas ${stage.icon}"></i> ${stage.label}</span>
-            ${source ? `<span style="font-size:0.72rem; padding:3px 9px; border-radius:6px; background:rgba(255,255,255,0.05); color:var(--text-secondary); border:1px solid var(--border-color);"><i class="${source.icon}"></i> ${source.label}</span>` : ''}
-          </div>
           <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; font-size:0.78rem;">
             ${lead.phone ? `<div><span style="color:var(--text-muted);">SĐT</span><br><strong>${lead.phone}</strong></div>` : ''}
             ${assignee ? `<div><span style="color:var(--text-muted);">Phụ trách</span><br><strong>${assignee.name}</strong></div>` : ''}
@@ -1863,29 +1873,34 @@ export const UI = {
 
         <!-- Quick Stage Change (Owner/Admin Only) -->
         <div>
-          <div style="font-size:0.72rem; color:var(--text-muted); margin-bottom:8px; font-weight:600; text-transform:uppercase; letter-spacing:0.4px;">Giai Đoạn CRM</div>
+          <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; margin-bottom:8px;">
+            <div style="font-size:0.72rem; color:var(--text-muted); font-weight:700; text-transform:uppercase; letter-spacing:0.4px;">Giai Đoạn CRM</div>
+            <span style="font-size:0.68rem; color:${stage.color}; font-weight:800;">Hiện tại: ${stage.label}</span>
+          </div>
           ${canEditLead ? `
-            <div style="display:flex; flex-wrap:wrap; gap:6px;">
-              ${LEAD_STAGES.map(s => {
+            <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(145px, 1fr)); gap:7px;">
+              ${LEAD_STAGES.map((s, stageIndex) => {
       const isActive = s.id === lead.stage;
       return `
                   <button class="drawer-stage-btn" data-stage="${s.id}" style="
-                    padding:7px 11px;
-                    border-radius:10px;
+                    min-height:42px;
+                    padding:7px 10px;
+                    border-radius:9px;
                     cursor:pointer;
-                    font-size:0.75rem;
-                    font-weight:${isActive ? '700' : '500'};
-                    border:1px solid ${isActive ? s.color : 'var(--border-color)'};
-                    background:${isActive ? s.color + '25' : 'rgba(255,255,255,0.03)'};
-                    color:${isActive ? s.color : 'var(--text-secondary)'};
+                    font-size:0.73rem;
+                    font-weight:${isActive ? '800' : '600'};
+                    border:1.5px solid ${isActive ? s.color : 'var(--border-color)'};
+                    background:${isActive ? s.color + '20' : 'rgba(255,255,255,0.018)'};
+                    color:${isActive ? s.color : 'var(--text-muted)'};
                     display:inline-flex;
                     align-items:center;
-                    gap:6px;
-                    box-shadow:${isActive ? `0 0 10px ${s.color}33` : 'none'};
+                    justify-content:flex-start;
+                    gap:7px;
+                    box-shadow:${isActive ? `0 3px 10px ${s.color}22` : 'none'};
                     transition:all 0.18s;
                   ">
-                    <i class="fas ${s.icon}" style="color:${s.color}; font-size:0.75rem;"></i>
-                    <span>${s.label}</span>
+                    <span style="width:20px; height:20px; border-radius:50%; display:inline-flex; align-items:center; justify-content:center; flex-shrink:0; background:${isActive ? s.color : s.color + '15'}; color:${isActive ? 'white' : s.color}; font-size:0.64rem; font-weight:800;">${isActive ? '✓' : stageIndex + 1}</span>
+                    <span style="text-align:left; line-height:1.2;">${s.label}</span>
                   </button>
                 `;
     }).join('')}
@@ -1996,7 +2011,7 @@ export const UI = {
       </div>
     `;
 
-    const modal = Modal.create(lead.name, html);
+    const modal = Modal.create('Chi Tiết Khách Hàng', html);
 
     document.getElementById('drawer-toggle-history')?.addEventListener('click', (e) => {
       const button = e.currentTarget;
