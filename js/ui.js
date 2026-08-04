@@ -5673,7 +5673,7 @@ export const UI = {
                 <span style="font-size:0.72rem; color:${startedTimeFormatted ? '#3B82F6' : '#64748B'}; font-weight:700;">${startedTimeFormatted || 'Chưa tiếp nhận'}</span>
               </div>
               <div style="font-size:0.78rem; color:${startedTimeFormatted ? 'var(--text-secondary)' : 'var(--text-muted)'}; margin-top:2px;">
-                ${startedTimeFormatted ? `${isSurvey ? 'Người phụ trách' : 'KTS'} <strong>${ktsName}</strong> đã bấm bắt đầu lúc <strong>${startedTimeFormatted}</strong>.` : `⏳ ${isSurvey ? 'Người phụ trách' : 'KTS'} chưa bấm nút Bắt đầu nhận công việc.`}
+                ${startedTimeFormatted ? `${isSurvey ? 'Người phụ trách' : 'KTS'} <strong>${ktsName}</strong> đã bắt đầu thực hiện công việc.` : `⏳ ${isSurvey ? 'Người phụ trách' : 'KTS'} chưa bấm nút Bắt đầu nhận công việc.`}
               </div>
             </div>
 
@@ -5701,21 +5701,6 @@ export const UI = {
             </div>
 
           </div>
-
-          <!-- Extra audit history log list -->
-          ${(freshTask.history && freshTask.history.length > 0) ? `
-            <div style="margin-top:16px; padding-top:12px; border-top:1px dashed var(--border-color);">
-              <div style="font-size:0.75rem; font-weight:700; color:var(--text-muted); margin-bottom:8px;"><i class="fas fa-list-ul"></i> Chi tiết nhật ký thao tác:</div>
-              <div style="display:flex; flex-direction:column; gap:6px;">
-                ${freshTask.history.map(h => `
-                  <div style="font-size:0.72rem; color:var(--text-secondary); background:rgba(255,255,255,0.02); padding:6px 8px; border-radius:6px; display:flex; justify-content:space-between;">
-                    <span><strong>${h.action}</strong> ${h.user ? `(${h.user})` : ''} ${h.note ? `: ${h.note}` : ''}</span>
-                    ${fmt.datetimeBadges(h.timestamp)}
-                  </div>
-                `).join('')}
-              </div>
-            </div>
-          ` : ''}
         </div>
 
         <!-- Footer Buttons -->
