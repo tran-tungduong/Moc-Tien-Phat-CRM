@@ -1785,7 +1785,7 @@ export const DB = {
       const appointment = this.createAppointment({
         leadId: newTask.leadId,
         leadName: this.getLead(newTask.leadId)?.name || newTask.leadName,
-        title: `📏 ${newTask.title}`,
+        title: newTask.title,
         datetime: newTask.deadline,
         assignedTo: newTask.assigneeType === 'external' ? newTask.responsibleUserId : newTask.ktsId,
         appointmentType: 'site_survey',
@@ -1854,7 +1854,7 @@ export const DB = {
       const updatedTask = db.ktsTasks[idx];
       if (syncLinkedAppointment && updatedTask.taskType === 'site_survey' && updatedTask.appointmentId) {
         const appointmentFields = {
-          title: `📏 ${updatedTask.title}`,
+          title: updatedTask.title,
           datetime: updatedTask.deadline,
           assignedTo: updatedTask.assigneeType === 'external' ? updatedTask.responsibleUserId : updatedTask.ktsId,
           note: [

@@ -72,7 +72,7 @@ SELECT
   'apt_survey_' || t.id,
   t.lead_id,
   t.lead_name,
-  '📏 ' || t.title,
+  t.title,
   t.deadline,
   CASE WHEN t.assignee_type = 'external' THEN t.responsible_user_id ELSE t.kts_id END,
   t.assigner_id,
@@ -99,6 +99,11 @@ FROM public.appointments a
 WHERE a.kts_task_id = t.id
   AND t.task_type = 'site_survey'
   AND t.appointment_id IS NULL;
+
+UPDATE public.appointments
+SET title = REGEXP_REPLACE(title, '^📏\s*', '')
+WHERE appointment_type = 'site_survey'
+  AND title LIKE '📏%';
 
 -- 3. Tạo bảng kts_logs (nếu chưa có)
 CREATE TABLE IF NOT EXISTS public.kts_logs (

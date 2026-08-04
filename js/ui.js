@@ -1016,7 +1016,7 @@ export const UI = {
               </div>
               <div style="display:flex; flex-direction:column; gap:8px; margin-top:10px;">
                 ${(() => {
-                  const activeKtsTasks = DB.getKtsTasks(user.id, user.role).filter(t => t.status !== 'completed');
+                  const activeKtsTasks = DB.getKtsTasks(user.id, user.role).filter(t => t.status !== 'completed' && t.taskType !== 'site_survey');
                   if (activeKtsTasks.length === 0) {
                     return `<div class="empty-state" style="padding:20px; text-align:center;"><i class="fas fa-clipboard-check" style="font-size:2rem; color:var(--text-muted);"></i><p style="margin-top:6px; font-size:0.8rem; color:var(--text-secondary);">Hiện không có công việc nào cần xử lý.</p></div>`;
                   }
@@ -3748,6 +3748,9 @@ export const UI = {
         pending.map(a => {
           const cd = getCountdownInfo(a.datetime);
           const aptOwner = DB.getUserById(a.assignedTo || a.createdBy);
+          const linkedTask = a.ktsTaskId ? DB.getKtsTasks().find(t => t.id === a.ktsTaskId) : null;
+          const isSurvey = a.appointmentType === 'site_survey';
+          const displayTitle = isSurvey ? (a.title || '').replace(/^📏\s*/, '') : a.title;
           return `
                 <div class="list-item apt-item" data-id="${a.id}" style="margin-top:8px; border-left:4px solid ${cd.color}; padding:11px 14px; cursor:pointer; display:flex; justify-content:space-between; align-items:center; gap:8px;">
                   <div style="flex:1; min-width:0;">
@@ -3755,11 +3758,12 @@ export const UI = {
                     <div style="font-size:0.98rem; font-weight:800; color:var(--primary); display:flex; align-items:center; gap:6px; margin-bottom:2px;">
                       <i class="fas fa-user-circle" style="font-size:0.95rem;"></i> ${a.leadName || 'Khách Hàng'}
                     </div>
-                    <div style="font-size:0.82rem; font-weight:600; color:var(--text-primary);">${a.title}</div>
+                    <div style="font-size:0.82rem; font-weight:600; color:var(--text-primary);">${displayTitle}</div>
                     ${a.appointmentType === 'site_survey' ? '<div style="display:inline-block; margin-top:4px; padding:2px 7px; border-radius:5px; background:rgba(249,115,22,0.12); border:1px solid rgba(249,115,22,0.28); color:#F97316; font-size:0.66rem; font-weight:800;">📏 LỊCH KHẢO SÁT</div>' : ''}
                     <div style="font-size:0.72rem; color:var(--text-muted); margin-top:4px; display:flex; gap:8px; flex-wrap:wrap;">
-                      ${aptOwner ? `<span><i class="fas fa-user-tie"></i> Sale phụ trách: <strong style="color:var(--text-secondary);">${aptOwner.name}</strong></span>` : ''}
+                      ${aptOwner ? `<span><i class="fas fa-user-tie"></i> ${isSurvey ? 'Người đi khảo sát' : 'Người phụ trách'}: <strong style="color:var(--text-secondary);">${aptOwner.name}</strong></span>` : ''}
                       <span><i class="fas fa-clock"></i> ${fmt.datetime(a.datetime)}</span>
+                      ${isSurvey ? `<span style="color:${linkedTask?.status === 'in_progress' ? '#3B82F6' : '#F59E0B'}; font-weight:700;"><i class="fas ${linkedTask?.status === 'in_progress' ? 'fa-walking' : 'fa-hourglass-half'}"></i> ${linkedTask?.status === 'in_progress' ? 'Đang khảo sát' : 'Sắp diễn ra'}</span>` : ''}
                     </div>
                     ${a.note ? `<div style="font-size:0.7rem; color:var(--text-secondary); margin-top:2px;">${a.note}</div>` : ''}
                   </div>
@@ -3768,6 +3772,7 @@ export const UI = {
                       ${cd.icon} ${cd.label}
                     </div>
                     <div style="display:flex; gap:4px;">
+                      ${isSurvey && linkedTask?.status === 'pending' ? `<button class="apt-start-survey-btn" data-id="${a.id}" style="background:rgba(59,130,246,0.12); border:1px solid rgba(59,130,246,0.35); color:#3B82F6; font-size:0.7rem; font-weight:700; padding:4px 9px; border-radius:6px; cursor:pointer; white-space:nowrap;"><i class="fas fa-play"></i> Bắt đầu</button>` : ''}
                       <button class="apt-done-btn" data-id="${a.id}" style="background:rgba(16,185,129,0.15); border:1px solid rgba(16,185,129,0.4); color:#10B981; font-size:0.7rem; font-weight:700; padding:4px 9px; border-radius:6px; cursor:pointer; white-space:nowrap;"><i class="fas fa-check"></i> Xong</button>
                       <button class="apt-delete-btn" data-id="${a.id}" style="background:none; border:none; color:var(--status-rejected); font-size:0.75rem; cursor:pointer; padding:3px 5px;"><i class="fas fa-times"></i></button>
                     </div>
@@ -3790,7 +3795,7 @@ export const UI = {
                 <div style="flex:1; min-width:0;">
                   <div style="font-size:0.78rem; font-weight:600; color:var(--text-secondary); text-decoration:${a.status === 'done' ? 'line-through' : 'none'};">${a.title}</div>
                   <div style="font-size:0.65rem; color:var(--text-muted); margin-top:2px;">
-                    📅 Thời gian hẹn: ${fmt.datetime(a.datetime)} ${a.leadName ? `· 👤 Khách: ${a.leadName}` : ''} ${aptOwner ? `· 💼 Sale: ${aptOwner.name}` : ''}
+                    📅 Thời gian hẹn: ${fmt.datetime(a.datetime)} ${a.leadName ? `· 👤 Khách: ${a.leadName}` : ''} ${aptOwner ? `· 💼 ${a.appointmentType === 'site_survey' ? 'Người khảo sát' : 'Người phụ trách'}: ${aptOwner.name}` : ''}
                   </div>
                   ${a.completedAt ? `
                     <div style="font-size:0.65rem; color:${a.status === 'done' ? '#10B981' : '#EF4444'}; margin-top:3px; font-weight:600;">
@@ -3816,9 +3821,19 @@ export const UI = {
 
     body.querySelectorAll('.apt-item').forEach(item => {
       item.addEventListener('click', (e) => {
-        if (e.target.closest('.apt-done-btn') || e.target.closest('.apt-delete-btn')) return;
+        if (e.target.closest('.apt-start-survey-btn') || e.target.closest('.apt-done-btn') || e.target.closest('.apt-delete-btn')) return;
         const id = item.getAttribute('data-id');
         this.openAppointmentDrawer(id, user, () => this.renderAppointments(user, filterStaffId));
+      });
+    });
+
+    body.querySelectorAll('.apt-start-survey-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const apt = DB.getAppointment(btn.getAttribute('data-id'));
+        if (apt?.ktsTaskId) DB.updateKtsTask(apt.ktsTaskId, { status: 'in_progress' });
+        Toast.info('Đã chuyển trạng thái: Đang khảo sát.');
+        this.renderAppointments(user, filterStaffId);
       });
     });
 
@@ -3858,6 +3873,10 @@ export const UI = {
     const lead = apt.leadId ? DB.getLead(apt.leadId) : null;
     const completedUser = apt.completedBy ? DB.getUserById(apt.completedBy) : null;
     const canEdit = user.role === 'manager' || apt.assignedTo === user.id || apt.createdBy === user.id;
+    const linkedTask = apt.ktsTaskId ? DB.getKtsTasks().find(t => t.id === apt.ktsTaskId) : null;
+    const isSurvey = apt.appointmentType === 'site_survey';
+    const displayTitle = isSurvey ? (apt.title || '').replace(/^📏\s*/, '') : apt.title;
+    const displayStatus = apt.status === 'done' ? '✓ Đã Hoàn Thành' : apt.status === 'cancelled' ? '✗ Đã Hủy' : (linkedTask?.status === 'in_progress' ? '🔵 Đang Khảo Sát' : '⏳ Sắp Diễn Ra');
 
     const html = `
       <div style="display:flex; flex-direction:column; gap:14px;">
@@ -3867,9 +3886,9 @@ export const UI = {
             <i class="fas fa-user-circle" style="font-size:1.1rem;"></i> ${apt.leadName || (lead ? lead.name : 'Khách Hàng')}
           </div>
           <div style="font-size:0.9rem; font-weight:700; color:var(--text-primary); margin-top:4px;">
-            📌 ${apt.title}
+            ${isSurvey ? '📏' : '📌'} ${displayTitle}
           </div>
-          ${apt.appointmentType === 'site_survey' ? '<div style="display:inline-block; margin-top:7px; padding:3px 8px; border-radius:6px; background:rgba(249,115,22,0.12); border:1px solid rgba(249,115,22,0.28); color:#F97316; font-size:0.7rem; font-weight:800;">📏 LỊCH KHẢO SÁT THỰC ĐỊA · ĐỒNG BỘ CV KTS</div>' : ''}
+          ${apt.appointmentType === 'site_survey' ? '<div style="display:inline-block; margin-top:7px; padding:3px 8px; border-radius:6px; background:rgba(249,115,22,0.12); border:1px solid rgba(249,115,22,0.28); color:#F97316; font-size:0.7rem; font-weight:800;">📏 LỊCH KHẢO SÁT THỰC ĐỊA</div>' : ''}
           <div style="margin-top:10px; display:flex; align-items:center; justify-content:space-between; gap:8px; flex-wrap:wrap;">
             <div style="font-size:0.75rem; color:var(--text-muted);">
               <i class="fas fa-clock" style="color:var(--primary);"></i> ${fmt.datetime(apt.datetime)}
@@ -3883,13 +3902,13 @@ export const UI = {
         <!-- Detail Grid -->
         <div class="info-grid">
           <div>
-            <span style="color:var(--text-muted); font-size:0.7rem;">Sale phụ trách</span>
+            <span style="color:var(--text-muted); font-size:0.7rem;">${isSurvey ? 'Người đi khảo sát' : 'Người phụ trách'}</span>
             <div style="font-weight:700; color:var(--text-primary);">${aptOwner ? aptOwner.name : 'Chưa giao'}</div>
           </div>
           <div>
             <span style="color:var(--text-muted); font-size:0.7rem;">Trạng Thái</span>
-            <div style="font-weight:700; color:${apt.status === 'done' ? '#10B981' : apt.status === 'cancelled' ? '#EF4444' : '#F59E0B'};">
-              ${apt.status === 'done' ? '✓ Đã Hoàn Thành' : apt.status === 'cancelled' ? '✗ Đã Hủy' : '⏳ Chưa Diễn Ra'}
+            <div style="font-weight:700; color:${apt.status === 'done' ? '#10B981' : apt.status === 'cancelled' ? '#EF4444' : linkedTask?.status === 'in_progress' ? '#3B82F6' : '#F59E0B'};">
+              ${displayStatus}
             </div>
           </div>
           ${lead ? `
@@ -3920,6 +3939,7 @@ export const UI = {
         ${canEdit ? `
           <!-- Actions Row -->
           <div style="display:flex; gap:8px; margin-top:6px; border-top:1px solid var(--border-color); padding-top:12px;">
+            ${isSurvey && apt.status === 'pending' && linkedTask?.status === 'pending' ? `<button id="drawer-apt-start-survey-btn" class="btn-secondary" style="flex:1; color:#3B82F6; border-color:rgba(59,130,246,0.35); font-size:0.8rem;"><i class="fas fa-play"></i> Bắt Đầu Khảo Sát</button>` : ''}
             ${apt.status === 'pending' ? `
               <button id="drawer-apt-done-btn" class="btn-primary" style="flex:1; background:#10B981; border-color:#10B981; font-size:0.8rem;"><i class="fas fa-check"></i> Đánh Dấu Hoàn Thành</button>
             ` : ''}
@@ -3938,9 +3958,15 @@ export const UI = {
     });
 
     if (canEdit) {
+      document.getElementById('drawer-apt-start-survey-btn')?.addEventListener('click', () => {
+        if (linkedTask) DB.updateKtsTask(linkedTask.id, { status: 'in_progress' });
+        Toast.info('Đã chuyển trạng thái: Đang khảo sát.');
+        modal.close();
+        if (onUpdate) onUpdate();
+      });
+
       document.getElementById('drawer-apt-done-btn')?.addEventListener('click', () => {
         modal.close();
-        const linkedTask = apt.ktsTaskId ? DB.getKtsTasks().find(t => t.id === apt.ktsTaskId) : null;
         if (apt.appointmentType === 'site_survey' && linkedTask) {
           this.openCompleteKtsTaskModal(linkedTask, user, onUpdate);
         } else {
@@ -4815,11 +4841,11 @@ export const UI = {
   renderKtsTasks(user, filterType = 'all') {
     this._setActiveNav('kts_tasks');
     const body = this._getBody();
-    const tasks = DB.getKtsTasks(user.id, user.role);
+    // Khảo sát được quản lý và hiển thị tại Lịch Hẹn để tránh trùng một việc ở hai nơi.
+    const tasks = DB.getKtsTasks(user.id, user.role).filter(t => t.taskType !== 'site_survey');
 
     let filtered = tasks;
-    if (filterType === 'site_survey') filtered = tasks.filter(t => t.taskType === 'site_survey');
-    else if (filterType === 'fast_support') filtered = tasks.filter(t => t.taskType === 'fast_support');
+    if (filterType === 'fast_support') filtered = tasks.filter(t => t.taskType === 'fast_support');
     else if (filterType === 'technical_draw') filtered = tasks.filter(t => t.taskType === 'technical_draw');
     else if (filterType === 'cnc_export') filtered = tasks.filter(t => t.taskType === 'cnc_export');
     else if (filterType === 'completed') filtered = tasks.filter(t => t.status === 'completed');
@@ -4838,7 +4864,6 @@ export const UI = {
         <div class="filter-tabs" style="margin-bottom:16px;">
           <button class="tab-btn ${filterType === 'all' ? 'active' : ''}" data-type="all">Tất Cả (${tasks.length})</button>
           <button class="tab-btn ${filterType === 'pending' ? 'active' : ''}" data-type="pending">⏳ Đang Xử Lý (${tasks.filter(t => t.status !== 'completed').length})</button>
-          <button class="tab-btn ${filterType === 'site_survey' ? 'active' : ''}" data-type="site_survey">📏 Khảo Sát Thực Địa (${tasks.filter(t => t.taskType === 'site_survey').length})</button>
           <button class="tab-btn ${filterType === 'fast_support' ? 'active' : ''}" data-type="fast_support">⚡ Vẽ Phản Ứng Nhanh (${tasks.filter(t => t.taskType === 'fast_support').length})</button>
           <button class="tab-btn ${filterType === 'technical_draw' ? 'active' : ''}" data-type="technical_draw">📐 Kết Cấu Chi Tiết (${tasks.filter(t => t.taskType === 'technical_draw').length})</button>
           <button class="tab-btn ${filterType === 'cnc_export' ? 'active' : ''}" data-type="cnc_export">🖨️ Xuất File CNC (${tasks.filter(t => t.taskType === 'cnc_export').length})</button>
