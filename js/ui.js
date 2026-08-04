@@ -651,7 +651,8 @@ export const UI = {
         { id: 'appointments', label: 'Lịch Hẹn', icon: 'fa-calendar-alt' },
         { id: 'contracts', label: 'Hợp Đồng', icon: 'fa-file-contract' },
         { id: 'campaigns', label: 'Chiến Dịch', icon: 'fa-bullhorn' },
-        { id: 'kts_tasks', label: 'CV KTS', icon: 'fa-tasks' }
+        { id: 'kts_tasks', label: 'CV KTS', icon: 'fa-tasks' },
+        { id: 'kts_reports', label: 'Báo Cáo KTS', icon: 'fa-chart-line' }
       ];
     }
     const all = [
@@ -4307,7 +4308,92 @@ export const UI = {
   // ══════════════════════════════════════════════════════
   //  10. BÁO CÁO KTS & KỸ THUẬT (Nhật Long)
   // ══════════════════════════════════════════════════════
+  renderKtsDailyReport(user, selectedDate = null, selectedKtsId = 'all') {
+    this._setActiveNav('kts_reports');
+    const body = this._getBody();
+    const localDateKey = (value = new Date()) => {
+      const date = value instanceof Date ? value : new Date(value);
+      if (Number.isNaN(date.getTime())) return '';
+      const offset = date.getTimezoneOffset();
+      return new Date(date.getTime() - offset * 60000).toISOString().slice(0, 10);
+    };
+    const reportDate = selectedDate || localDateKey();
+    const ktsUsers = DB.getUsers().filter(u => u.role === 'kts');
+    const allTasks = DB.getKtsTasks().filter(t => t.taskType !== 'site_survey');
+    const isOnDate = value => value && localDateKey(value) === reportDate;
+    const hasDailyActivity = task => isOnDate(task.createdAt) || isOnDate(task.startedAt) || isOnDate(task.completedAt);
+    const visibleUsers = selectedKtsId === 'all' ? ktsUsers : ktsUsers.filter(u => u.id === selectedKtsId);
+    const typeMap = {
+      fast_support: '⚡ Vẽ phản ứng nhanh',
+      technical_draw: '📐 Vẽ kết cấu chi tiết',
+      cnc_export: '🖨️ Xuất file CNC'
+    };
+    const summaries = visibleUsers.map(kts => {
+      const owned = allTasks.filter(t => t.ktsId === kts.id);
+      const daily = owned.filter(hasDailyActivity);
+      return {
+        kts,
+        daily,
+        assigned: owned.filter(t => isOnDate(t.createdAt)).length,
+        started: owned.filter(t => isOnDate(t.startedAt)).length,
+        completed: owned.filter(t => isOnDate(t.completedAt)).length,
+        doing: owned.filter(t => t.status === 'in_progress').length,
+        overdue: owned.filter(t => t.status !== 'completed' && t.deadline && new Date(t.deadline) < new Date()).length
+      };
+    });
+    const events = [];
+    summaries.forEach(summary => summary.daily.forEach(task => {
+      if (isOnDate(task.createdAt)) events.push({ time: task.createdAt, action: 'Được giao việc', color: '#8B5CF6', task, kts: summary.kts });
+      if (isOnDate(task.startedAt)) events.push({ time: task.startedAt, action: 'Bắt đầu thực hiện', color: '#3B82F6', task, kts: summary.kts });
+      if (isOnDate(task.completedAt)) events.push({ time: task.completedAt, action: 'Hoàn thành & bàn giao', color: '#10B981', task, kts: summary.kts });
+    }));
+    events.sort((a, b) => new Date(b.time) - new Date(a.time));
+    const totalCompleted = summaries.reduce((sum, item) => sum + item.completed, 0);
+    const totalStarted = summaries.reduce((sum, item) => sum + item.started, 0);
+    const totalAssigned = summaries.reduce((sum, item) => sum + item.assigned, 0);
+
+    body.innerHTML = `
+      <div class="page-content fade-in">
+        <div class="page-title-row">
+          <div><h2 class="page-title"><i class="fas fa-chart-line"></i> Báo Cáo Hoạt Động KTS Theo Ngày</h2><div class="page-subtitle">Tự động tổng hợp từ thao tác giao việc, bắt đầu và hoàn thành</div></div>
+        </div>
+        <div class="section-card" style="padding:12px 14px; display:flex; gap:12px; align-items:flex-end; flex-wrap:wrap;">
+          <div class="form-group" style="margin:0;"><label class="form-label">Ngày báo cáo</label><input type="date" id="kts-daily-date" class="form-input" value="${reportDate}"></div>
+          <div class="form-group" style="margin:0; min-width:220px;"><label class="form-label">Kiến trúc sư</label><select id="kts-daily-user" class="form-select"><option value="all">Tất cả KTS</option>${ktsUsers.map(k => `<option value="${k.id}" ${selectedKtsId === k.id ? 'selected' : ''}>${k.name}</option>`).join('')}</select></div>
+        </div>
+        <div class="kpi-grid" style="margin-bottom:16px;">
+          <div class="kpi-card"><div class="kpi-icon" style="color:#8B5CF6;"><i class="fas fa-inbox"></i></div><div class="kpi-body"><div class="kpi-val">${totalAssigned}</div><div class="kpi-label">Việc Được Giao</div></div></div>
+          <div class="kpi-card"><div class="kpi-icon" style="color:#3B82F6;"><i class="fas fa-play"></i></div><div class="kpi-body"><div class="kpi-val">${totalStarted}</div><div class="kpi-label">Việc Bắt Đầu</div></div></div>
+          <div class="kpi-card"><div class="kpi-icon" style="color:#10B981;"><i class="fas fa-check"></i></div><div class="kpi-body"><div class="kpi-val">${totalCompleted}</div><div class="kpi-label">Việc Hoàn Thành</div></div></div>
+        </div>
+        <div class="section-card">
+          <div class="section-header"><i class="fas fa-users" style="color:var(--primary);"></i><span>Tổng Hợp Theo KTS</span></div>
+          <div style="overflow-x:auto; margin-top:10px;"><table style="width:100%; border-collapse:collapse; min-width:680px; font-size:0.78rem;">
+            <thead><tr style="color:var(--text-muted); border-bottom:1px solid var(--border-color);"><th style="text-align:left; padding:9px;">KTS</th><th>Phát sinh</th><th>Bắt đầu</th><th>Hoàn thành</th><th>Đang làm</th><th>Trễ hạn</th></tr></thead>
+            <tbody>${summaries.map(s => `<tr style="border-bottom:1px solid rgba(255,255,255,0.05);"><td style="padding:11px 9px; font-weight:800; color:var(--text-primary);">👤 ${s.kts.name}</td><td style="text-align:center;">${s.assigned}</td><td style="text-align:center; color:#3B82F6; font-weight:700;">${s.started}</td><td style="text-align:center; color:#10B981; font-weight:800;">${s.completed}</td><td style="text-align:center; color:#F59E0B;">${s.doing}</td><td style="text-align:center; color:#EF4444; font-weight:700;">${s.overdue}</td></tr>`).join('')}</tbody>
+          </table></div>
+        </div>
+        <div class="section-card">
+          <div class="section-header"><i class="fas fa-stream" style="color:var(--primary);"></i><span>Dòng Thời Gian Trong Ngày (${events.length})</span></div>
+          <div style="display:flex; flex-direction:column; gap:9px; margin-top:12px;">
+            ${events.length === 0 ? '<div class="empty-state" style="padding:24px;"><i class="fas fa-clipboard-check"></i><p>Chưa ghi nhận hoạt động KTS trong ngày này.</p></div>' : events.map(event => `<button class="kts-daily-event" data-id="${event.task.id}" style="width:100%; text-align:left; background:rgba(255,255,255,0.025); border:1px solid var(--border-color); border-left:4px solid ${event.color}; border-radius:9px; padding:10px 12px; cursor:pointer; color:inherit;"><div style="display:flex; justify-content:space-between; gap:10px;"><strong style="color:${event.color};">${fmt.datetime(event.time)} · ${event.action}</strong><span style="color:var(--text-muted);">${event.kts.name}</span></div><div style="font-weight:700; color:var(--text-primary); margin-top:4px;">${event.task.title}</div><div style="font-size:0.72rem; color:var(--text-muted); margin-top:2px;">${typeMap[event.task.taskType] || 'Công việc KTS'} · ${event.task.leadName || 'Dự án'}</div></button>`).join('')}
+          </div>
+        </div>
+      </div>`;
+
+    document.getElementById('kts-daily-date')?.addEventListener('change', e => this.renderKtsDailyReport(user, e.target.value, selectedKtsId));
+    document.getElementById('kts-daily-user')?.addEventListener('change', e => this.renderKtsDailyReport(user, reportDate, e.target.value));
+    document.querySelectorAll('.kts-daily-event').forEach(btn => btn.addEventListener('click', () => {
+      const task = DB.getKtsTasks().find(t => t.id === btn.getAttribute('data-id'));
+      if (task) this.openKtsTaskDetailModal(task, user, () => this.renderKtsDailyReport(user, reportDate, selectedKtsId));
+    }));
+  },
+
   renderKtsReports(user, filterTaskType = 'all', searchQuery = '') {
+    if (user.role === 'manager') {
+      this.renderKtsDailyReport(user);
+      return;
+    }
     this._setActiveNav('kts_reports');
     const body = this._getBody();
     const allLogs = DB.getKtsLogs();
