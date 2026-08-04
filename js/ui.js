@@ -1520,7 +1520,7 @@ export const UI = {
         <div style="display:flex; justify-content:space-between; align-items:center;">
           <span style="font-size:0.75rem; color:var(--text-muted);">Có ${unread.length} thông báo chưa đọc</span>
           <div style="display:flex; gap:6px; flex-wrap:wrap; justify-content:flex-end;">
-            ${notifs.some(n => n.status === 'read' && (user.role === 'manager' || n.userId === user.id)) ? `<button id="notif-modal-clear-read" style="background:rgba(239,68,68,0.1); border:1px solid rgba(239,68,68,0.25); color:#EF4444; font-size:0.72rem; font-weight:700; padding:4px 10px; border-radius:6px; cursor:pointer;"><i class="fas fa-broom"></i> Xóa đã đọc</button>` : ''}
+            ${notifs.some(n => n.status === 'read') ? `<button id="notif-modal-clear-read" style="background:rgba(239,68,68,0.1); border:1px solid rgba(239,68,68,0.25); color:#EF4444; font-size:0.72rem; font-weight:700; padding:4px 10px; border-radius:6px; cursor:pointer;"><i class="fas fa-broom"></i> Xóa đã đọc</button>` : ''}
             ${unread.length > 0 ? `<button id="notif-modal-read-all" style="background:rgba(16,185,129,0.15); border:1px solid rgba(16,185,129,0.3); color:#10B981; font-size:0.72rem; font-weight:700; padding:4px 10px; border-radius:6px; cursor:pointer;"><i class="fas fa-check-double"></i> Đã đọc tất cả</button>` : ''}
           </div>
         </div>
@@ -1557,7 +1557,7 @@ export const UI = {
                     </div>
                     <div style="display:flex; gap:5px; align-items:center; flex-shrink:0;">
                       ${n.status === 'unread' ? `<button class="notif-item-read-btn" data-id="${n.id}" style="background:rgba(16,185,129,0.2); border:1px solid rgba(16,185,129,0.4); color:#10B981; padding:4px 8px; border-radius:6px; font-size:0.7rem; font-weight:700; cursor:pointer;"><i class="fas fa-check"></i> Đã đọc</button>` : ''}
-                      ${(user.role === 'manager' || n.userId === user.id) ? `<button class="notif-item-delete-btn" data-id="${n.id}" title="Xóa thông báo" style="background:rgba(239,68,68,0.1); border:1px solid rgba(239,68,68,0.25); color:#EF4444; width:28px; height:28px; border-radius:6px; cursor:pointer;"><i class="fas fa-trash"></i></button>` : ''}
+                      <button class="notif-item-delete-btn" data-id="${n.id}" title="Xóa thông báo khỏi tài khoản của tôi" style="background:rgba(239,68,68,0.1); border:1px solid rgba(239,68,68,0.25); color:#EF4444; width:28px; height:28px; border-radius:6px; cursor:pointer;"><i class="fas fa-trash"></i></button>
                     </div>
                   </div>
                 </div>

@@ -207,6 +207,7 @@ CREATE TABLE public.notifications (
     proof_image TEXT,
     collector_name TEXT,
     status TEXT DEFAULT 'unread', -- unread, read
+    dismissed_by JSONB DEFAULT '[]'::jsonb,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 

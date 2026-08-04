@@ -494,6 +494,7 @@ export const DB = {
             proofImage: n.proof_image || '',
             collectorName: n.collector_name || '',
             status: n.status || 'unread',
+            dismissedBy: Array.isArray(n.dismissed_by) ? n.dismissed_by : [],
             createdAt: n.created_at
           }));
       }
@@ -824,6 +825,7 @@ export const DB = {
         proof_image: notif.proofImage || null,
         collector_name: notif.collectorName || null,
         status: notif.status || 'unread',
+        dismissed_by: Array.isArray(notif.dismissedBy) ? notif.dismissedBy : [],
         created_at: notif.createdAt
       });
     } catch (err) { console.error('Push notification error:', err); }
@@ -1339,6 +1341,7 @@ export const DB = {
     let list = db.notifications;
     if (user) {
       list = list.filter(n => {
+        if ((n.dismissedBy || []).includes(user.id)) return false;
         if (n.userId && n.userId !== user.id) return false;
         if (n.type === 'new_payment') {
           if (user.role !== 'manager' && user.role !== 'accountant') return false;
@@ -1382,10 +1385,10 @@ export const DB = {
     if (!user) user = this.getCurrentUser();
     const db = this.load();
     const notif = (db.notifications || []).find(n => n.id === id);
-    if (!notif || !user || (user.role !== 'manager' && notif.userId !== user.id)) return false;
-    db.notifications = db.notifications.filter(n => n.id !== id);
+    if (!notif || !user) return false;
+    notif.dismissedBy = [...new Set([...(notif.dismissedBy || []), user.id])];
     this.save(db);
-    this._delete('notifications', id);
+    this._pushNotificationToSupabase(notif);
     return true;
   },
 
@@ -1394,12 +1397,13 @@ export const DB = {
     if (!user) return 0;
     const db = this.load();
     const visibleIds = new Set(this.getNotifications('all', user).filter(n => n.status === 'read').map(n => n.id));
-    const deletable = (db.notifications || []).filter(n => visibleIds.has(n.id) && (user.role === 'manager' || n.userId === user.id));
+    const deletable = (db.notifications || []).filter(n => visibleIds.has(n.id));
     if (deletable.length === 0) return 0;
-    const ids = new Set(deletable.map(n => n.id));
-    db.notifications = db.notifications.filter(n => !ids.has(n.id));
+    deletable.forEach(n => {
+      n.dismissedBy = [...new Set([...(n.dismissedBy || []), user.id])];
+    });
     this.save(db);
-    deletable.forEach(n => this._delete('notifications', n.id));
+    deletable.forEach(n => this._pushNotificationToSupabase(n));
     return deletable.length;
   },
 
