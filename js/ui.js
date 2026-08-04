@@ -4854,7 +4854,6 @@ export const UI = {
           <div class="form-group">
             <label class="form-label">Loại Việc KTS <span style="color:#EF4444;">*</span></label>
             <select id="kts-assign-task-type" class="form-select" required>
-              <option value="site_survey" ${isEdit && editTask.taskType === 'site_survey' ? 'selected' : ''}>📏 Đi đo khảo sát thực địa</option>
               <option value="fast_support" ${isEdit && editTask.taskType === 'fast_support' ? 'selected' : ''}>⚡ Vẽ phản ứng nhanh hỗ trợ Sale tư vấn</option>
               <option value="technical_draw" ${isEdit && editTask.taskType === 'technical_draw' ? 'selected' : ''}>📐 Vẽ kết cấu chi tiết</option>
               <option value="cnc_export" ${isEdit && editTask.taskType === 'cnc_export' ? 'selected' : ''}>🖨️ Xuất file CNC</option>
@@ -4922,6 +4921,10 @@ export const UI = {
       e.preventDefault();
       try {
         const taskType = document.getElementById('kts-assign-task-type').value;
+        if (taskType === 'site_survey' && !isSurveyStageFlow) {
+          Toast.error('Khảo sát thực địa chỉ được tạo từ giai đoạn CRM của khách hàng.');
+          return;
+        }
         const selectedAssignee = document.getElementById('kts-assign-user').value;
         const isSurvey = taskType === 'site_survey';
         const isExternal = isSurvey && selectedAssignee === '__external__';
