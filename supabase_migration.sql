@@ -59,6 +59,46 @@ ALTER TABLE public.kts_tasks ADD COLUMN IF NOT EXISTS responsible_user_name TEXT
 ALTER TABLE public.kts_tasks ADD COLUMN IF NOT EXISTS survey_address TEXT;
 ALTER TABLE public.kts_tasks ADD COLUMN IF NOT EXISTS survey_contact_name TEXT;
 ALTER TABLE public.kts_tasks ADD COLUMN IF NOT EXISTS survey_contact_phone TEXT;
+ALTER TABLE public.kts_tasks ADD COLUMN IF NOT EXISTS appointment_id TEXT REFERENCES public.appointments(id) ON DELETE SET NULL;
+ALTER TABLE public.appointments ADD COLUMN IF NOT EXISTS appointment_type TEXT DEFAULT 'general';
+ALTER TABLE public.appointments ADD COLUMN IF NOT EXISTS kts_task_id TEXT;
+
+-- Tạo lịch hẹn cho các task khảo sát cũ chưa có liên kết
+INSERT INTO public.appointments (
+  id, lead_id, lead_name, title, datetime, assigned_to, created_by,
+  status, note, appointment_type, kts_task_id, completed_at, created_at
+)
+SELECT
+  'apt_survey_' || t.id,
+  t.lead_id,
+  t.lead_name,
+  '📏 ' || t.title,
+  t.deadline,
+  CASE WHEN t.assignee_type = 'external' THEN t.responsible_user_id ELSE t.kts_id END,
+  t.assigner_id,
+  CASE WHEN t.status = 'completed' THEN 'done' ELSE 'pending' END,
+  CONCAT_WS(E'\n',
+    CASE WHEN t.survey_address IS NOT NULL THEN 'Địa chỉ: ' || t.survey_address END,
+    CASE WHEN t.survey_contact_name IS NOT NULL THEN 'Liên hệ: ' || t.survey_contact_name || COALESCE(' · ' || t.survey_contact_phone, '') END,
+    CASE WHEN t.assignee_type = 'external' THEN 'Người đi khảo sát ngoài hệ thống: ' || COALESCE(t.external_assignee_name, t.kts_name) END,
+    t.requirement
+  ),
+  'site_survey',
+  t.id,
+  t.completed_at,
+  t.created_at
+FROM public.kts_tasks t
+WHERE t.task_type = 'site_survey'
+  AND t.appointment_id IS NULL
+  AND t.deadline IS NOT NULL
+ON CONFLICT (id) DO NOTHING;
+
+UPDATE public.kts_tasks t
+SET appointment_id = a.id
+FROM public.appointments a
+WHERE a.kts_task_id = t.id
+  AND t.task_type = 'site_survey'
+  AND t.appointment_id IS NULL;
 
 -- 3. Tạo bảng kts_logs (nếu chưa có)
 CREATE TABLE IF NOT EXISTS public.kts_logs (
@@ -97,6 +137,8 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_lead_revisions_event_key ON public.lead_re
 CREATE INDEX IF NOT EXISTS idx_kts_tasks_status_deadline ON public.kts_tasks(status, deadline);
 CREATE INDEX IF NOT EXISTS idx_kts_tasks_kts ON public.kts_tasks(kts_id);
 CREATE INDEX IF NOT EXISTS idx_kts_tasks_responsible ON public.kts_tasks(responsible_user_id);
+CREATE INDEX IF NOT EXISTS idx_kts_tasks_appointment ON public.kts_tasks(appointment_id);
+CREATE INDEX IF NOT EXISTS idx_appointments_kts_task ON public.appointments(kts_task_id);
 CREATE INDEX IF NOT EXISTS idx_kts_logs_user_date ON public.kts_logs(user_id, date);
 CREATE INDEX IF NOT EXISTS idx_notifications_user_status ON public.notifications(user_id, status);
 

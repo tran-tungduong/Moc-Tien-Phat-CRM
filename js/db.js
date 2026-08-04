@@ -432,6 +432,8 @@ export const DB = {
           note: a.note || '',
           completedAt: a.completed_at || '',
           completedBy: a.completed_by || '',
+          appointmentType: a.appointment_type || 'general',
+          ktsTaskId: a.kts_task_id || '',
           createdAt: a.created_at
         }));
       }
@@ -513,6 +515,7 @@ export const DB = {
           surveyAddress: t.survey_address || '',
           surveyContactName: t.survey_contact_name || '',
           surveyContactPhone: t.survey_contact_phone || '',
+          appointmentId: t.appointment_id || '',
           taskType: t.task_type || '',
           title: t.title || '',
           requirement: t.requirement || '',
@@ -744,6 +747,8 @@ export const DB = {
         note: apt.note,
         completed_at: apt.completedAt || null,
         completed_by: apt.completedBy || null,
+        appointment_type: apt.appointmentType || 'general',
+        kts_task_id: apt.ktsTaskId || null,
         created_at: apt.createdAt
       });
     } catch (err) { console.error('Push appointment error:', err); }
@@ -840,6 +845,7 @@ export const DB = {
       survey_address: task.surveyAddress || null,
       survey_contact_name: task.surveyContactName || null,
       survey_contact_phone: task.surveyContactPhone || null,
+      appointment_id: task.appointmentId || null,
       task_type: task.taskType || '',
       title: task.title || '',
       requirement: task.requirement || null,
@@ -1501,6 +1507,8 @@ export const DB = {
       createdBy: userId,
       status: 'pending',
       note: data.note || '',
+      appointmentType: data.appointmentType || 'general',
+      ktsTaskId: data.ktsTaskId || '',
       createdAt: new Date().toISOString()
     };
 
@@ -1517,7 +1525,7 @@ export const DB = {
     return apt;
   },
 
-  updateAppointment(id, data, userId = null) {
+  updateAppointment(id, data, userId = null, syncLinkedTask = true) {
     const db = this.load();
     const idx = db.appointments.findIndex(a => a.id === id);
     if (idx === -1) return null;
@@ -1549,6 +1557,24 @@ export const DB = {
 
     this.save(db);
     this._pushAppointmentToSupabase(db.appointments[idx]);
+    if (syncLinkedTask && oldApt.ktsTaskId) {
+      const linkedFields = {};
+      if (data.datetime) linkedFields.deadline = new Date(data.datetime).toISOString();
+      if (data.assignedTo) {
+        const assignee = this.getUserById(data.assignedTo);
+        linkedFields.ktsId = data.assignedTo;
+        linkedFields.ktsName = assignee ? assignee.name : oldApt.leadName;
+        linkedFields.assigneeType = 'internal';
+        linkedFields.responsibleUserId = data.assignedTo;
+        linkedFields.responsibleUserName = assignee ? assignee.name : '';
+      }
+      if (data.status === 'done') {
+        linkedFields.status = 'completed';
+        linkedFields.completedAt = updateData.completedAt;
+        linkedFields.resultNote = data.resultNote || 'Đã hoàn thành khảo sát từ Lịch Hẹn';
+      }
+      if (Object.keys(linkedFields).length > 0) this.updateKtsTask(oldApt.ktsTaskId, linkedFields, false);
+    }
     return db.appointments[idx];
   },
 
@@ -1755,6 +1781,29 @@ export const DB = {
     db.ktsTasks.unshift(newTask);
     this.save(db);
 
+    if (newTask.taskType === 'site_survey') {
+      const appointment = this.createAppointment({
+        leadId: newTask.leadId,
+        leadName: this.getLead(newTask.leadId)?.name || newTask.leadName,
+        title: `📏 ${newTask.title}`,
+        datetime: newTask.deadline,
+        assignedTo: newTask.assigneeType === 'external' ? newTask.responsibleUserId : newTask.ktsId,
+        appointmentType: 'site_survey',
+        ktsTaskId: newTask.id,
+        note: [
+          newTask.surveyAddress ? `Địa chỉ: ${newTask.surveyAddress}` : '',
+          newTask.surveyContactName ? `Liên hệ: ${newTask.surveyContactName}${newTask.surveyContactPhone ? ` · ${newTask.surveyContactPhone}` : ''}` : '',
+          newTask.assigneeType === 'external' ? `Người đi khảo sát ngoài hệ thống: ${newTask.externalAssigneeName}${newTask.externalAssigneePhone ? ` · ${newTask.externalAssigneePhone}` : ''}` : '',
+          newTask.requirement || ''
+        ].filter(Boolean).join('\n')
+      }, newTask.assignerId);
+      newTask.appointmentId = appointment.id;
+      const latestDb = this.load();
+      const taskIndex = latestDb.ktsTasks.findIndex(t => t.id === newTask.id);
+      if (taskIndex !== -1) latestDb.ktsTasks[taskIndex] = newTask;
+      this.save(latestDb);
+    }
+
     if (newTask.ktsId) {
       this.addNotification({
         userId: newTask.ktsId,
@@ -1770,7 +1819,7 @@ export const DB = {
     return newTask;
   },
 
-  updateKtsTask(id, fields) {
+  updateKtsTask(id, fields, syncLinkedAppointment = true) {
     const db = this.load();
     if (!db.ktsTasks) db.ktsTasks = [];
     const idx = db.ktsTasks.findIndex(t => t.id === id);
@@ -1802,6 +1851,23 @@ export const DB = {
       db.ktsTasks[idx] = { ...oldTask, ...fields, history, updatedAt: now };
       this.save(db);
 
+      const updatedTask = db.ktsTasks[idx];
+      if (syncLinkedAppointment && updatedTask.taskType === 'site_survey' && updatedTask.appointmentId) {
+        const appointmentFields = {
+          title: `📏 ${updatedTask.title}`,
+          datetime: updatedTask.deadline,
+          assignedTo: updatedTask.assigneeType === 'external' ? updatedTask.responsibleUserId : updatedTask.ktsId,
+          note: [
+            updatedTask.surveyAddress ? `Địa chỉ: ${updatedTask.surveyAddress}` : '',
+            updatedTask.surveyContactName ? `Liên hệ: ${updatedTask.surveyContactName}${updatedTask.surveyContactPhone ? ` · ${updatedTask.surveyContactPhone}` : ''}` : '',
+            updatedTask.assigneeType === 'external' ? `Người đi khảo sát ngoài hệ thống: ${updatedTask.externalAssigneeName}${updatedTask.externalAssigneePhone ? ` · ${updatedTask.externalAssigneePhone}` : ''}` : '',
+            updatedTask.requirement || ''
+          ].filter(Boolean).join('\n')
+        };
+        if (fields.status === 'completed') appointmentFields.status = 'done';
+        this.updateAppointment(updatedTask.appointmentId, appointmentFields, null, false);
+      }
+
       if (fields.status === 'completed' && oldTask.status !== 'completed' && oldTask.assignerId) {
         this.addNotification({
           userId: oldTask.assignerId,
@@ -1821,10 +1887,11 @@ export const DB = {
   deleteKtsTask(id) {
     const db = this.load();
     if (!db.ktsTasks) return false;
-    const exists = db.ktsTasks.some(t => t.id === id);
-    if (!exists) return false;
+    const task = db.ktsTasks.find(t => t.id === id);
+    if (!task) return false;
     db.ktsTasks = db.ktsTasks.filter(t => t.id !== id);
     this.save(db);
+    if (task.appointmentId) this.updateAppointment(task.appointmentId, { status: 'cancelled' }, null, false);
     this._deleteKtsTaskFromSupabase(id);
     return true;
   },

@@ -153,6 +153,8 @@ CREATE TABLE public.appointments (
     note TEXT,
     completed_at TIMESTAMP WITH TIME ZONE,
     completed_by TEXT,
+    appointment_type TEXT DEFAULT 'general', -- general, site_survey
+    kts_task_id TEXT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
@@ -225,6 +227,7 @@ CREATE TABLE public.kts_tasks (
     survey_address TEXT,
     survey_contact_name TEXT,
     survey_contact_phone TEXT,
+    appointment_id TEXT REFERENCES public.appointments(id) ON DELETE SET NULL,
     task_type TEXT NOT NULL, -- site_survey, fast_support, technical_draw, cnc_export
     title TEXT NOT NULL,
     requirement TEXT,
@@ -276,9 +279,11 @@ CREATE INDEX idx_payments_date ON public.contract_payments(date);
 
 CREATE INDEX idx_campaign_logs_camp ON public.campaign_daily_logs(campaign_id);
 CREATE INDEX idx_appointments_assigned ON public.appointments(assigned_to);
+CREATE INDEX idx_appointments_kts_task ON public.appointments(kts_task_id);
 CREATE INDEX idx_kts_tasks_status_deadline ON public.kts_tasks(status, deadline);
 CREATE INDEX idx_kts_tasks_kts ON public.kts_tasks(kts_id);
 CREATE INDEX idx_kts_tasks_responsible ON public.kts_tasks(responsible_user_id);
+CREATE INDEX idx_kts_tasks_appointment ON public.kts_tasks(appointment_id);
 CREATE INDEX idx_kts_logs_user_date ON public.kts_logs(user_id, date);
 CREATE INDEX idx_notifications_user_status ON public.notifications(user_id, status);
 

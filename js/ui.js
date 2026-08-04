@@ -3756,6 +3756,7 @@ export const UI = {
                       <i class="fas fa-user-circle" style="font-size:0.95rem;"></i> ${a.leadName || 'Khách Hàng'}
                     </div>
                     <div style="font-size:0.82rem; font-weight:600; color:var(--text-primary);">${a.title}</div>
+                    ${a.appointmentType === 'site_survey' ? '<div style="display:inline-block; margin-top:4px; padding:2px 7px; border-radius:5px; background:rgba(249,115,22,0.12); border:1px solid rgba(249,115,22,0.28); color:#F97316; font-size:0.66rem; font-weight:800;">📏 LỊCH KHẢO SÁT</div>' : ''}
                     <div style="font-size:0.72rem; color:var(--text-muted); margin-top:4px; display:flex; gap:8px; flex-wrap:wrap;">
                       ${aptOwner ? `<span><i class="fas fa-user-tie"></i> Sale phụ trách: <strong style="color:var(--text-secondary);">${aptOwner.name}</strong></span>` : ''}
                       <span><i class="fas fa-clock"></i> ${fmt.datetime(a.datetime)}</span>
@@ -3825,9 +3826,15 @@ export const UI = {
       btn.addEventListener('click', (e) => {
         e.stopPropagation();
         const id = btn.getAttribute('data-id');
-        DB.updateAppointment(id, { status: 'done' }, user.id);
-        Toast.success('Đánh dấu hoàn thành!');
-        this.renderAppointments(user, filterStaffId);
+        const apt = DB.getAppointment(id);
+        const linkedTask = apt?.ktsTaskId ? DB.getKtsTasks().find(t => t.id === apt.ktsTaskId) : null;
+        if (apt?.appointmentType === 'site_survey' && linkedTask) {
+          this.openCompleteKtsTaskModal(linkedTask, user, () => this.renderAppointments(user, filterStaffId));
+        } else {
+          DB.updateAppointment(id, { status: 'done' }, user.id);
+          Toast.success('Đánh dấu hoàn thành!');
+          this.renderAppointments(user, filterStaffId);
+        }
       });
     });
     body.querySelectorAll('.apt-delete-btn').forEach(btn => {
@@ -3862,6 +3869,7 @@ export const UI = {
           <div style="font-size:0.9rem; font-weight:700; color:var(--text-primary); margin-top:4px;">
             📌 ${apt.title}
           </div>
+          ${apt.appointmentType === 'site_survey' ? '<div style="display:inline-block; margin-top:7px; padding:3px 8px; border-radius:6px; background:rgba(249,115,22,0.12); border:1px solid rgba(249,115,22,0.28); color:#F97316; font-size:0.7rem; font-weight:800;">📏 LỊCH KHẢO SÁT THỰC ĐỊA · ĐỒNG BỘ CV KTS</div>' : ''}
           <div style="margin-top:10px; display:flex; align-items:center; justify-content:space-between; gap:8px; flex-wrap:wrap;">
             <div style="font-size:0.75rem; color:var(--text-muted);">
               <i class="fas fa-clock" style="color:var(--primary);"></i> ${fmt.datetime(apt.datetime)}
@@ -3931,10 +3939,15 @@ export const UI = {
 
     if (canEdit) {
       document.getElementById('drawer-apt-done-btn')?.addEventListener('click', () => {
-        DB.updateAppointment(aptId, { status: 'done' }, user.id);
-        Toast.success('Đã đánh dấu hoàn thành!');
         modal.close();
-        if (onUpdate) onUpdate();
+        const linkedTask = apt.ktsTaskId ? DB.getKtsTasks().find(t => t.id === apt.ktsTaskId) : null;
+        if (apt.appointmentType === 'site_survey' && linkedTask) {
+          this.openCompleteKtsTaskModal(linkedTask, user, onUpdate);
+        } else {
+          DB.updateAppointment(aptId, { status: 'done' }, user.id);
+          Toast.success('Đã đánh dấu hoàn thành!');
+          if (onUpdate) onUpdate();
+        }
       });
 
       document.getElementById('drawer-apt-edit-btn')?.addEventListener('click', () => {
@@ -4022,7 +4035,9 @@ export const UI = {
         leadName: leadOpt && targetLeadId ? leadOpt.getAttribute('data-name') : '',
         datetime: document.getElementById('af-datetime').value,
         note: document.getElementById('af-note').value,
-        assignedTo: user.id
+        assignedTo: apt?.assignedTo || user.id,
+        appointmentType: apt?.appointmentType || 'general',
+        ktsTaskId: apt?.ktsTaskId || ''
       };
       if (apt) {
         DB.updateAppointment(aptId, data);
