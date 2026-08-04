@@ -5017,7 +5017,7 @@ export const UI = {
 
         <div class="form-group">
           <label class="form-label">${isSurveyStageFlow ? 'Nội Dung Lịch Hẹn' : 'Tên Yêu Cầu / Tên Công Việc'} <span style="color:#EF4444;">*</span></label>
-          <input type="text" id="kts-assign-title" class="form-input" placeholder="Ví dụ: Vẽ 3D phương án bếp màu gỗ phối trắng..." value="${isEdit ? editTask.title : `Vẽ 3D phương án ${lead.interestedIn || 'nội thất'} cho ${lead.name}`}" required>
+          <input type="text" id="kts-assign-title" class="form-input" placeholder="Nhập tên yêu cầu / tên công việc" value="${isEdit ? editTask.title : ''}" required>
         </div>
 
         <div class="form-group">
@@ -5049,11 +5049,6 @@ export const UI = {
       document.getElementById('kts-assignee-label').innerHTML = `${isSurvey ? 'Người đi khảo sát' : 'Chọn KTS / Người Nhận'} <span style="color:#EF4444;">*</span>`;
       document.getElementById('kts-survey-fields').style.display = isSurvey ? 'block' : 'none';
       document.getElementById('kts-external-assignee-fields').style.display = isSurvey && assigneeEl.value === '__external__' ? 'block' : 'none';
-      if (!isEdit) {
-        document.getElementById('kts-assign-title').value = isSurvey
-          ? `Khảo sát thực địa ${lead.interestedIn || 'nội thất'} cho ${lead.name}`
-          : `Vẽ 3D phương án ${lead.interestedIn || 'nội thất'} cho ${lead.name}`;
-      }
     };
     taskTypeEl?.addEventListener('change', syncAssigneeOptions);
     assigneeEl?.addEventListener('change', syncAssigneeOptions);
@@ -5406,7 +5401,7 @@ export const UI = {
 
         <div class="form-group">
           <label class="form-label">${isSurvey ? 'Kết Quả Khảo Sát / Số Đo Chính' : 'Ghi Chú Kết Quả / Khối Lượng Hoàn Thành'}</label>
-          <input type="text" id="kts-complete-note" class="form-input" placeholder="${isSurvey ? 'Ví dụ: Đã đo hiện trạng, trần cao 2,8m; vị trí điện nước...' : 'Ví dụ: Đã xong 3D phối màu gỗ, 14 tấm ván 17mm...'}" value="Đã hoàn thành ${task.title}" required>
+          <input type="text" id="kts-complete-note" class="form-input" placeholder="${isSurvey ? 'Nhập kết quả khảo sát / số đo chính' : 'Nhập ghi chú kết quả / khối lượng hoàn thành'}" value="" required>
         </div>
 
         <div class="form-group">
