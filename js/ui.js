@@ -27,6 +27,14 @@ const fmt = {
     const d = new Date(str);
     return d.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' }) + ' ' + d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
   },
+  datetimeBadges(str) {
+    if (!str) return '<span class="datetime-empty">—</span>';
+    const d = new Date(str);
+    if (Number.isNaN(d.getTime())) return '<span class="datetime-empty">—</span>';
+    const date = d.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' });
+    const time = d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+    return `<span class="datetime-badges"><span class="datetime-date"><i class="far fa-calendar"></i>${date}</span><span class="datetime-time"><i class="far fa-clock"></i>${time}</span></span>`;
+  },
   timeAgo(str) {
     if (!str) return '';
     const diff = Date.now() - new Date(str).getTime();
@@ -1099,7 +1107,7 @@ export const UI = {
                       <div style="font-size:0.82rem; font-weight:600; color:var(--text-primary);">${a.title}</div>
                       <div style="font-size:0.72rem; color:var(--text-muted); margin-top:4px; display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
                         ${aptOwner ? `<span><i class="fas fa-user-tie"></i> Sale: <strong style="color:var(--text-secondary);">${aptOwner.name}</strong></span>` : ''}
-                        <span><i class="fas fa-clock"></i> ${fmt.datetime(a.datetime)}</span>
+                        ${fmt.datetimeBadges(a.datetime)}
                       </div>
                     </div>
                     <!-- EYE-CATCHING PROMINENT COUNTDOWN BADGE -->
@@ -1967,7 +1975,7 @@ export const UI = {
                         <span style="font-size:0.62rem; color:var(--text-muted);">${fmt.timeAgo(h.timestamp)}</span>
                       </div>
                       <div style="font-size:0.78rem; font-weight:700; color:var(--text-primary); margin-top:3px;">${h.action}</div>
-                      <div style="font-size:0.64rem; color:var(--text-muted); margin-top:1px;"><i class="fas fa-user-edit"></i> ${h.user} · ${fmt.datetime(h.timestamp)}</div>
+                      <div style="font-size:0.64rem; color:var(--text-muted); margin-top:4px; display:flex; align-items:center; gap:6px; flex-wrap:wrap;"><span><i class="fas fa-user-edit"></i> ${h.user}</span>${fmt.datetimeBadges(h.timestamp)}</div>
                     </div>
                   </div>
                 `;
@@ -3788,7 +3796,7 @@ export const UI = {
                     ${a.appointmentType === 'site_survey' ? '<div style="display:inline-block; margin-top:4px; padding:2px 7px; border-radius:5px; background:rgba(249,115,22,0.12); border:1px solid rgba(249,115,22,0.28); color:#F97316; font-size:0.66rem; font-weight:800;">📏 LỊCH KHẢO SÁT</div>' : ''}
                     <div style="font-size:0.72rem; color:var(--text-muted); margin-top:4px; display:flex; gap:8px; flex-wrap:wrap;">
                       ${aptOwner ? `<span><i class="fas fa-user-tie"></i> ${isSurvey ? 'Người đi khảo sát' : 'Người phụ trách'}: <strong style="color:var(--text-secondary);">${aptOwner.name}</strong></span>` : ''}
-                      <span><i class="fas fa-clock"></i> ${fmt.datetime(a.datetime)}</span>
+                      ${fmt.datetimeBadges(a.datetime)}
                       ${isSurvey ? `<span style="color:${linkedTask?.status === 'in_progress' ? '#3B82F6' : '#F59E0B'}; font-weight:700;"><i class="fas ${linkedTask?.status === 'in_progress' ? 'fa-walking' : 'fa-hourglass-half'}"></i> ${linkedTask?.status === 'in_progress' ? 'Đang khảo sát' : 'Sắp diễn ra'}</span>` : ''}
                     </div>
                     ${a.note ? `<div style="font-size:0.7rem; color:var(--text-secondary); margin-top:2px;">${a.note}</div>` : ''}
@@ -3821,11 +3829,11 @@ export const UI = {
                 <div style="flex:1; min-width:0;">
                   <div style="font-size:0.78rem; font-weight:600; color:var(--text-secondary); text-decoration:${a.status === 'done' ? 'line-through' : 'none'};">${a.title}</div>
                   <div style="font-size:0.65rem; color:var(--text-muted); margin-top:2px;">
-                    📅 Thời gian hẹn: ${fmt.datetime(a.datetime)} ${a.leadName ? `· 👤 Khách: ${a.leadName}` : ''} ${aptOwner ? `· 💼 ${a.appointmentType === 'site_survey' ? 'Người khảo sát' : 'Người phụ trách'}: ${aptOwner.name}` : ''}
+                    <span style="display:inline-flex; align-items:center; gap:5px; flex-wrap:wrap;">Thời gian hẹn: ${fmt.datetimeBadges(a.datetime)}</span> ${a.leadName ? `· 👤 Khách: ${a.leadName}` : ''} ${aptOwner ? `· 💼 ${a.appointmentType === 'site_survey' ? 'Người khảo sát' : 'Người phụ trách'}: ${aptOwner.name}` : ''}
                   </div>
                   ${a.completedAt ? `
                     <div style="font-size:0.65rem; color:${a.status === 'done' ? '#10B981' : '#EF4444'}; margin-top:3px; font-weight:600;">
-                      <i class="fas ${a.status === 'done' ? 'fa-check-circle' : 'fa-times-circle'}"></i> ${a.status === 'done' ? 'Thao tác Xong' : 'Thao tác Hủy'} lúc: <strong>${fmt.datetime(a.completedAt)}</strong> (${fmt.timeAgo(a.completedAt)}) ${completedUser ? `bởi ${completedUser.name}` : ''}
+                      <i class="fas ${a.status === 'done' ? 'fa-check-circle' : 'fa-times-circle'}"></i> ${a.status === 'done' ? 'Thao tác Xong' : 'Thao tác Hủy'} ${fmt.datetimeBadges(a.completedAt)} (${fmt.timeAgo(a.completedAt)}) ${completedUser ? `bởi ${completedUser.name}` : ''}
                     </div>
                   ` : ''}
                 </div>
@@ -3917,7 +3925,7 @@ export const UI = {
           ${apt.appointmentType === 'site_survey' ? '<div style="display:inline-block; margin-top:7px; padding:3px 8px; border-radius:6px; background:rgba(249,115,22,0.12); border:1px solid rgba(249,115,22,0.28); color:#F97316; font-size:0.7rem; font-weight:800;">📏 LỊCH KHẢO SÁT THỰC ĐỊA</div>' : ''}
           <div style="margin-top:10px; display:flex; align-items:center; justify-content:space-between; gap:8px; flex-wrap:wrap;">
             <div style="font-size:0.75rem; color:var(--text-muted);">
-              <i class="fas fa-clock" style="color:var(--primary);"></i> ${fmt.datetime(apt.datetime)}
+              ${fmt.datetimeBadges(apt.datetime)}
             </div>
             <div style="background:${cd.bg}; border:1.5px solid ${cd.border}; color:${cd.color}; padding:4px 10px; border-radius:8px; font-weight:800; font-size:0.75rem;">
               ${cd.icon} ${cd.label}
@@ -3958,7 +3966,7 @@ export const UI = {
 
         ${apt.completedAt ? `
           <div style="font-size:0.7rem; color:${apt.status === 'done' ? '#10B981' : '#EF4444'}; background:rgba(0,0,0,0.2); padding:8px 10px; border-radius:8px;">
-            <i class="fas ${apt.status === 'done' ? 'fa-check-circle' : 'fa-times-circle'}"></i> ${apt.status === 'done' ? 'Đã hoàn thành' : 'Đã hủy'} lúc: <strong>${fmt.datetime(apt.completedAt)}</strong> (${fmt.timeAgo(apt.completedAt)}) ${completedUser ? `bởi ${completedUser.name}` : ''}
+            <i class="fas ${apt.status === 'done' ? 'fa-check-circle' : 'fa-times-circle'}"></i> ${apt.status === 'done' ? 'Đã hoàn thành' : 'Đã hủy'} ${fmt.datetimeBadges(apt.completedAt)} (${fmt.timeAgo(apt.completedAt)}) ${completedUser ? `bởi ${completedUser.name}` : ''}
           </div>
         ` : ''}
 
@@ -4342,8 +4350,6 @@ export const UI = {
       const offset = date.getTimezoneOffset();
       return new Date(date.getTime() - offset * 60000).toISOString().slice(0, 10);
     };
-    const eventDateLabel = value => new Date(value).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' });
-    const eventTimeLabel = value => new Date(value).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
     const reportDate = selectedDate || localDateKey();
     const ktsUsers = DB.getUsers().filter(u => u.role === 'kts');
     const allTasks = DB.getKtsTasks().filter(t => t.taskType !== 'site_survey');
@@ -4403,7 +4409,7 @@ export const UI = {
         <div class="section-card">
           <div class="section-header"><i class="fas fa-stream" style="color:var(--primary);"></i><span>Dòng Thời Gian Trong Ngày (${events.length})</span></div>
           <div style="display:flex; flex-direction:column; gap:9px; margin-top:12px;">
-            ${events.length === 0 ? '<div class="empty-state" style="padding:24px;"><i class="fas fa-clipboard-check"></i><p>Chưa ghi nhận hoạt động KTS trong ngày này.</p></div>' : events.map(event => `<button class="kts-daily-event" data-id="${event.task.id}" style="width:100%; text-align:left; background:rgba(255,255,255,0.025); border:1px solid var(--border-color); border-left:4px solid ${event.color}; border-radius:9px; padding:11px 12px; cursor:pointer; color:inherit;"><div style="display:flex; justify-content:space-between; align-items:flex-start; gap:12px; flex-wrap:wrap;"><div style="display:flex; align-items:center; gap:7px; flex-wrap:wrap;"><span style="background:rgba(100,116,139,0.12); border:1px solid rgba(100,116,139,0.28); color:var(--text-secondary); padding:3px 7px; border-radius:6px; font-size:0.68rem; font-weight:800;"><i class="far fa-calendar"></i> ${eventDateLabel(event.time)}</span><span style="background:rgba(59,130,246,0.12); border:1px solid rgba(59,130,246,0.3); color:#3B82F6; padding:3px 8px; border-radius:6px; font-size:0.72rem; font-weight:900;"><i class="far fa-clock"></i> ${eventTimeLabel(event.time)}</span><strong style="color:${event.color}; font-size:0.76rem; margin-left:2px;">${event.action}</strong></div><span style="color:var(--text-muted); font-size:0.72rem;">${event.kts.name}</span></div><div style="font-weight:750; color:var(--text-primary); margin-top:7px;">${event.task.title}</div><div style="font-size:0.72rem; color:var(--text-muted); margin-top:2px;">${typeMap[event.task.taskType] || 'Công việc KTS'} · ${event.task.leadName || 'Dự án'}</div></button>`).join('')}
+            ${events.length === 0 ? '<div class="empty-state" style="padding:24px;"><i class="fas fa-clipboard-check"></i><p>Chưa ghi nhận hoạt động KTS trong ngày này.</p></div>' : events.map(event => `<button class="kts-daily-event" data-id="${event.task.id}" style="width:100%; text-align:left; background:rgba(255,255,255,0.025); border:1px solid var(--border-color); border-left:4px solid ${event.color}; border-radius:9px; padding:11px 12px; cursor:pointer; color:inherit;"><div style="display:flex; justify-content:space-between; align-items:flex-start; gap:12px; flex-wrap:wrap;"><div style="display:flex; align-items:center; gap:7px; flex-wrap:wrap;">${fmt.datetimeBadges(event.time)}<strong style="color:${event.color}; font-size:0.76rem; margin-left:2px;">${event.action}</strong></div><span style="color:var(--text-muted); font-size:0.72rem;">${event.kts.name}</span></div><div style="font-weight:700; color:var(--text-primary); margin-top:7px;">${event.task.title}</div><div style="font-size:0.72rem; color:var(--text-muted); margin-top:2px;">${typeMap[event.task.taskType] || 'Công việc KTS'} · ${event.task.leadName || 'Dự án'}</div></button>`).join('')}
           </div>
         </div>
       </div>`;
@@ -4935,7 +4941,7 @@ export const UI = {
               <div style="font-weight:700; color:var(--primary); margin-bottom:4px;"><i class="fas fa-tasks"></i> ${title}</div>
               <div style="color:var(--text-secondary); margin-bottom:2px;"><i class="fas fa-building"></i> Lead: <strong>${lead.name}</strong></div>
               <div style="color:var(--text-secondary); margin-bottom:2px;"><i class="fas fa-user-tag"></i> ${isSurvey ? 'Người đi khảo sát' : 'KTS nhận việc'}: <strong style="color:#8B5CF6;">${ktsUser.name}${isExternal ? ' · Ngoài hệ thống' : ''}</strong></div>
-              <div style="color:#F59E0B; font-weight:700; margin-top:6px;"><i class="fas fa-clock"></i> Hạn hoàn thành: ${fmt.datetime(deadline)}</div>
+              <div style="color:#F59E0B; font-weight:700; margin-top:8px; display:flex; align-items:center; gap:7px; flex-wrap:wrap;"><span>Hạn hoàn thành:</span> ${fmt.datetimeBadges(deadline)}</div>
             </div>
             <button id="btn-close-assign-success" class="btn-primary" style="padding:10px 28px; font-weight:700; border-radius:10px; background:linear-gradient(135deg, #10B981, #059669); font-size:0.88rem; cursor:pointer;"><i class="fas fa-check-circle"></i> Đã Hiểu</button>
           </div>
@@ -5030,8 +5036,8 @@ export const UI = {
 
                     <!-- Countdown Box -->
                     <div style="background:${isCompleted ? 'rgba(16,185,129,0.08)' : (cd.isOverdue ? 'rgba(239,68,68,0.1)' : 'rgba(255,255,255,0.04)')}; border:1px solid ${isCompleted ? 'rgba(16,185,129,0.3)' : (cd.isOverdue ? 'rgba(239,68,68,0.3)' : 'var(--border-color)')}; padding:8px 10px; border-radius:8px; margin-bottom:10px; font-size:0.75rem; font-weight:800; color:${isCompleted ? '#10B981' : cd.color}; display:flex; align-items:center; justify-content:space-between; gap:8px; flex-wrap:wrap;">
-                      <span style="display:inline-flex; align-items:center; gap:6px;"><i class="fas ${isCompleted ? 'fa-check-circle' : 'fa-clock'}"></i> ${isCompleted ? 'Hoàn thành lúc: ' + fmt.datetime(t.completedAt || t.updatedAt) : renderKtsCountdown(cd)}</span>
-                      ${!isCompleted ? `<span style="font-size:0.68rem; opacity:0.8;">Hạn: ${fmt.datetime(t.deadline)}</span>` : ''}
+                      <span style="display:inline-flex; align-items:center; gap:6px; flex-wrap:wrap;"><i class="fas ${isCompleted ? 'fa-check-circle' : 'fa-clock'}"></i> ${isCompleted ? `Hoàn thành ${fmt.datetimeBadges(t.completedAt || t.updatedAt)}` : renderKtsCountdown(cd)}</span>
+                      ${!isCompleted ? `<span style="font-size:0.68rem; opacity:0.9; display:inline-flex; align-items:center; gap:5px; flex-wrap:wrap;">Hạn: ${fmt.datetimeBadges(t.deadline)}</span>` : ''}
                     </div>
 
                     ${t.requirement ? `
@@ -5244,7 +5250,7 @@ export const UI = {
     const cd = getKtsCountdownInfo(freshTask.deadline);
     const isCompleted = freshTask.status === 'completed';
 
-    const assignedTime = freshTask.createdAt ? fmt.datetime(freshTask.createdAt) : 'Chưa ghi nhận';
+    const assignedTime = freshTask.createdAt ? fmt.datetimeBadges(freshTask.createdAt) : 'Chưa ghi nhận';
     const assignerName = freshTask.assignerName || 'Sale / Admin';
     const ktsName = freshTask.ktsName || 'Trần Hữu Nhật Long';
     const isSurvey = freshTask.taskType === 'site_survey';
@@ -5252,18 +5258,18 @@ export const UI = {
     // Resolve exact startedTime timestamp
     let startedTimeFormatted = null;
     if (freshTask.startedAt) {
-      startedTimeFormatted = fmt.datetime(freshTask.startedAt);
+      startedTimeFormatted = fmt.datetimeBadges(freshTask.startedAt);
     } else if (freshTask.history && freshTask.history.length > 0) {
       const logItem = freshTask.history.find(h => h.action && (h.action.includes('Tiếp nhận') || h.action.includes('Bắt đầu')));
       if (logItem && logItem.timestamp) {
-        startedTimeFormatted = fmt.datetime(logItem.timestamp);
+        startedTimeFormatted = fmt.datetimeBadges(logItem.timestamp);
       }
     }
     if (!startedTimeFormatted && freshTask.status !== 'pending') {
-      startedTimeFormatted = freshTask.updatedAt ? fmt.datetime(freshTask.updatedAt) : 'Đã tiếp nhận';
+      startedTimeFormatted = freshTask.updatedAt ? fmt.datetimeBadges(freshTask.updatedAt) : 'Đã tiếp nhận';
     }
 
-    const completedTime = freshTask.completedAt ? fmt.datetime(freshTask.completedAt) : null;
+    const completedTime = freshTask.completedAt ? fmt.datetimeBadges(freshTask.completedAt) : null;
 
     const html = `
       <div style="display:flex; flex-direction:column; gap:16px; max-height:75vh; overflow-y:auto; padding-right:4px;">
@@ -5305,7 +5311,7 @@ export const UI = {
             <span style="font-weight:700; color:${isCompleted ? '#10B981' : cd.color};">
               <i class="fas ${isCompleted ? 'fa-check-circle' : 'fa-clock'}"></i> ${isCompleted ? 'Đã hoàn thành bàn giao' : renderKtsCountdown(cd)}
             </span>
-            <span style="color:var(--text-muted);"><i class="fas fa-calendar-alt"></i> Hạn chót: <strong>${fmt.datetime(freshTask.deadline)}</strong></span>
+            <span style="color:var(--text-muted); display:inline-flex; align-items:center; gap:6px; flex-wrap:wrap;">Hạn chót: ${fmt.datetimeBadges(freshTask.deadline)}</span>
           </div>
         </div>
 
@@ -5375,7 +5381,7 @@ export const UI = {
                 ${freshTask.history.map(h => `
                   <div style="font-size:0.72rem; color:var(--text-secondary); background:rgba(255,255,255,0.02); padding:6px 8px; border-radius:6px; display:flex; justify-content:space-between;">
                     <span><strong>${h.action}</strong> ${h.user ? `(${h.user})` : ''} ${h.note ? `: ${h.note}` : ''}</span>
-                    <span style="color:var(--text-muted); font-size:0.68rem;">${fmt.datetime(h.timestamp)}</span>
+                    ${fmt.datetimeBadges(h.timestamp)}
                   </div>
                 `).join('')}
               </div>

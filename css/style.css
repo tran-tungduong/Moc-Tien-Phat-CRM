@@ -98,6 +98,45 @@ button {
   line-height: 1.25;
 }
 
+/* Consistent date/time presentation across cards, drawers and reports. */
+.datetime-badges {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  vertical-align: middle;
+  white-space: nowrap;
+}
+
+.datetime-date,
+.datetime-time {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border-radius: 6px;
+  padding: 3px 7px;
+  line-height: 1.15;
+  font-size: 0.68rem;
+  font-weight: 800;
+}
+
+.datetime-date {
+  color: var(--text-secondary);
+  background: rgba(100, 116, 139, 0.11);
+  border: 1px solid rgba(100, 116, 139, 0.25);
+}
+
+.datetime-time {
+  color: #3B82F6;
+  background: rgba(59, 130, 246, 0.11);
+  border: 1px solid rgba(59, 130, 246, 0.27);
+  font-size: 0.72rem;
+  font-weight: 900;
+}
+
+.datetime-empty {
+  color: var(--text-muted);
+}
+
 /* Scrollbar Customization */
 ::-webkit-scrollbar {
   width: 6px;
