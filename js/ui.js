@@ -3958,8 +3958,12 @@ export const UI = {
 
         <!-- History Section -->
         ${done.length > 0 ? `
-        <div class="section-card">
-          <div class="section-header"><i class="fas fa-history" style="color:var(--text-muted);"></i><span style="color:var(--text-muted);">Lịch Sử Hoàn Thành / Hủy (${done.length})</span></div>
+        <details class="section-card" style="padding:0; overflow:hidden;">
+          <summary style="list-style:none; cursor:pointer; padding:14px 16px; display:flex; justify-content:space-between; align-items:center; gap:10px; color:var(--text-muted); font-weight:800;">
+            <span><i class="fas fa-history"></i> Lịch Sử Hoàn Thành / Hủy (${done.length})</span>
+            <span style="font-size:0.72rem; color:var(--primary);">Bấm để xem <i class="fas fa-chevron-down"></i></span>
+          </summary>
+          <div style="border-top:1px solid var(--border-color); padding:8px 14px 14px;">
           ${done.map(a => {
             const completedUser = a.completedBy ? DB.getUserById(a.completedBy) : null;
             const aptOwner = DB.getUserById(a.assignedTo || a.createdBy);
@@ -3978,11 +3982,15 @@ export const UI = {
                     </div>
                   ` : ''}
                 </div>
-                <span style="font-size:0.62rem; padding:3px 7px; border-radius:5px; background:${completedLate ? 'rgba(239,68,68,0.15)' : (a.status === 'done' ? 'rgba(16,185,129,0.15)' : 'rgba(239,68,68,0.15)')}; color:${completedLate ? '#EF4444' : (a.status === 'done' ? '#10B981' : '#EF4444')}; border:1px solid ${completedLate ? 'rgba(239,68,68,0.3)' : (a.status === 'done' ? 'rgba(16,185,129,0.3)' : 'rgba(239,68,68,0.3)')}; white-space:nowrap;">${completedLate ? '⏰ Hoàn Thành Trễ' : (a.status === 'done' ? '✓ Đã Hoàn Thành' : '✗ Đã Hủy')}</span>
+                <div style="display:flex; flex-direction:column; gap:6px; align-items:flex-end; flex-shrink:0;">
+                  <span style="font-size:0.62rem; padding:3px 7px; border-radius:5px; background:${completedLate ? 'rgba(239,68,68,0.15)' : (a.status === 'done' ? 'rgba(16,185,129,0.15)' : 'rgba(239,68,68,0.15)')}; color:${completedLate ? '#EF4444' : (a.status === 'done' ? '#10B981' : '#EF4444')}; border:1px solid ${completedLate ? 'rgba(239,68,68,0.3)' : (a.status === 'done' ? 'rgba(16,185,129,0.3)' : 'rgba(239,68,68,0.3)')}; white-space:nowrap;">${completedLate ? '⏰ Hoàn Thành Trễ' : (a.status === 'done' ? '✓ Đã Hoàn Thành' : '✗ Đã Hủy')}</span>
+                  ${user.role === 'manager' ? `<div style="display:flex; gap:5px;"><button class="history-apt-edit-btn" data-id="${a.id}" title="Sửa lịch sử" style="width:28px; height:28px; border-radius:6px; border:1px solid rgba(59,130,246,0.3); background:rgba(59,130,246,0.1); color:#3B82F6; cursor:pointer;"><i class="fas fa-pen"></i></button><button class="history-apt-delete-btn" data-id="${a.id}" title="Xóa lịch sử" style="width:28px; height:28px; border-radius:6px; border:1px solid rgba(239,68,68,0.3); background:rgba(239,68,68,0.1); color:#EF4444; cursor:pointer;"><i class="fas fa-trash"></i></button></div>` : ''}
+                </div>
               </div>
             `;
           }).join('')}
-        </div>
+          </div>
+        </details>
         ` : ''}
       </div>
     `;
@@ -4038,6 +4046,28 @@ export const UI = {
         });
       });
     });
+
+    if (user.role === 'manager') {
+      body.querySelectorAll('.history-apt-edit-btn').forEach(btn => {
+        btn.addEventListener('click', event => {
+          event.stopPropagation();
+          this.openAppointmentForm(btn.getAttribute('data-id'), user, () => this.renderAppointments(user, filterStaffId));
+        });
+      });
+      body.querySelectorAll('.history-apt-delete-btn').forEach(btn => {
+        btn.addEventListener('click', event => {
+          event.stopPropagation();
+          const id = btn.getAttribute('data-id');
+          const appointment = DB.getAppointment(id);
+          if (!appointment) return;
+          this.confirmDelete('Xóa Lịch Sử Lịch Hẹn', `Xóa vĩnh viễn lịch "${appointment.title}" khỏi Lịch Hẹn? Công việc KTS liên quan vẫn được giữ lại trong Báo Cáo KTS.`, () => {
+            DB.deleteAppointment(id);
+            Toast.success('Đã xóa lịch sử lịch hẹn.');
+            this.renderAppointments(user, filterStaffId);
+          });
+        });
+      });
+    }
   },
 
   openAppointmentDrawer(aptId, user, onUpdate) {

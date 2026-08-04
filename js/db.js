@@ -1622,6 +1622,14 @@ export const DB = {
 
   deleteAppointment(id) {
     const db = this.load();
+    const appointment = db.appointments.find(a => a.id === id);
+    if (appointment?.ktsTaskId) {
+      const linkedTask = (db.ktsTasks || []).find(task => task.id === appointment.ktsTaskId);
+      if (linkedTask) {
+        linkedTask.appointmentId = '';
+        this._pushKtsTaskToSupabase(linkedTask);
+      }
+    }
     db.appointments = db.appointments.filter(a => a.id !== id);
     this.save(db);
     this._deleteAppointmentFromSupabase(id);
