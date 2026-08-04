@@ -4155,7 +4155,6 @@ export const UI = {
         <div>
           <label class="form-label">Ngày & Giờ Hẹn *</label>
           <input type="text" id="af-datetime" class="form-input" value="${apt?.datetime ? formatDateTime24(apt.datetime) : ''}" placeholder="dd/mm/yyyy HH:mm" inputmode="numeric" autocomplete="off" required>
-          <div style="font-size:0.68rem; color:var(--text-muted); margin-top:4px;"><i class="far fa-clock"></i> Định dạng: ngày/tháng/năm · giờ 24 giờ, ví dụ 08/04/2026 19:00</div>
           <div id="af-countdown" style="margin-top:8px; border-radius:10px; padding:10px 14px; display:none; align-items:center; gap:10px; font-weight:700; font-size:0.92rem; transition:all 0.3s;">
             <span id="af-countdown-icon" style="font-size:1.2rem;"></span>
             <span id="af-countdown-text"></span>
@@ -4925,7 +4924,6 @@ export const UI = {
           <div class="form-group">
             <label class="form-label">Ngày & Giờ Hẹn Khách <span style="color:#EF4444;">*</span></label>
             <input type="text" id="kts-assign-deadline" class="form-input" value="${defaultDeadlineStr}" placeholder="dd/mm/yyyy HH:mm" inputmode="numeric" autocomplete="off" required>
-            <div style="font-size:0.68rem; color:var(--text-muted); margin-top:4px;"><i class="far fa-clock"></i> Ví dụ: 08/04/2026 19:00</div>
             <div style="font-size:0.7rem; color:var(--text-muted); margin-top:5px;"><i class="fas fa-calendar-check" style="color:#3B82F6;"></i> Thời gian này sẽ xuất hiện trong Lịch Hẹn của người đi khảo sát.</div>
           </div>
         ` : `<div class="form-row">
@@ -4941,7 +4939,6 @@ export const UI = {
           <div class="form-group">
             <label class="form-label">Hạn Hoàn Thành (Deadline) <span style="color:#EF4444;">*</span></label>
             <input type="text" id="kts-assign-deadline" class="form-input" value="${defaultDeadlineStr}" placeholder="dd/mm/yyyy HH:mm" inputmode="numeric" autocomplete="off" required>
-            <div style="font-size:0.68rem; color:var(--text-muted); margin-top:4px;"><i class="far fa-clock"></i> Ví dụ: 08/04/2026 19:00</div>
           </div>
         </div>`}
 
