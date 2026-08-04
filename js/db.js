@@ -1840,11 +1840,12 @@ export const DB = {
 
       if (fields.status === 'completed' && oldTask.status !== 'completed') {
         fields.completedAt = fields.completedAt || now;
+        const completedLate = Boolean(oldTask.deadline && new Date(fields.completedAt) > new Date(oldTask.deadline));
         history.push({
           timestamp: fields.completedAt,
-          action: '✅ Đã hoàn thành',
+          action: completedLate ? '⏰ Hoàn thành trễ hạn' : '✅ Đã hoàn thành',
           user: oldTask.ktsName || 'Người thực hiện',
-          note: fields.resultNote || fields.completedNote || 'Đã hoàn thành công việc'
+          note: fields.resultNote || fields.completedNote || (completedLate ? 'Đã hoàn thành công việc sau thời hạn' : 'Đã hoàn thành công việc')
         });
       }
 
@@ -1869,9 +1870,10 @@ export const DB = {
       }
 
       if (fields.status === 'completed' && oldTask.status !== 'completed' && oldTask.assignerId) {
+        const completedLate = Boolean(oldTask.deadline && new Date(fields.completedAt || now) > new Date(oldTask.deadline));
         this.addNotification({
           userId: oldTask.assignerId,
-          title: oldTask.taskType === 'site_survey' ? '✅ Đã hoàn thành khảo sát!' : '✅ KTS đã hoàn thành công việc!',
+          title: completedLate ? '⏰ Công việc được hoàn thành trễ hạn!' : (oldTask.taskType === 'site_survey' ? '✅ Đã hoàn thành khảo sát!' : '✅ KTS đã hoàn thành công việc!'),
           message: `${oldTask.ktsName || 'Người thực hiện'} đã hoàn thành: "${oldTask.title}" (${oldTask.leadName})`,
           type: 'kts_task_completed',
           targetId: oldTask.id

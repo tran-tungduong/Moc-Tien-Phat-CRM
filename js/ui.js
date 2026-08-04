@@ -150,6 +150,13 @@ const renderKtsCountdown = (countdown) => `
   </span>
 `;
 
+const isKtsTaskCompletedLate = (task) => Boolean(
+  task?.status === 'completed' &&
+  task?.deadline &&
+  task?.completedAt &&
+  new Date(task.completedAt).getTime() > new Date(task.deadline).getTime()
+);
+
 const compressImage = (file, maxDimension = 800, quality = 0.7) => {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -3824,6 +3831,8 @@ export const UI = {
           ${done.map(a => {
             const completedUser = a.completedBy ? DB.getUserById(a.completedBy) : null;
             const aptOwner = DB.getUserById(a.assignedTo || a.createdBy);
+            const linkedTask = a.ktsTaskId ? DB.getKtsTasks().find(t => t.id === a.ktsTaskId) : null;
+            const completedLate = isKtsTaskCompletedLate(linkedTask);
             return `
               <div class="list-item" style="margin-top:6px; opacity:0.88; background:rgba(255,255,255,0.02);">
                 <div style="flex:1; min-width:0;">
@@ -3837,7 +3846,7 @@ export const UI = {
                     </div>
                   ` : ''}
                 </div>
-                <span style="font-size:0.62rem; padding:3px 7px; border-radius:5px; background:${a.status === 'done' ? 'rgba(16,185,129,0.15)' : 'rgba(239,68,68,0.15)'}; color:${a.status === 'done' ? '#10B981' : '#EF4444'}; border:1px solid ${a.status === 'done' ? 'rgba(16,185,129,0.3)' : 'rgba(239,68,68,0.3)'}; white-space:nowrap;">${a.status === 'done' ? '✓ Đã Hoàn Thành' : '✗ Đã Hủy'}</span>
+                <span style="font-size:0.62rem; padding:3px 7px; border-radius:5px; background:${completedLate ? 'rgba(239,68,68,0.15)' : (a.status === 'done' ? 'rgba(16,185,129,0.15)' : 'rgba(239,68,68,0.15)')}; color:${completedLate ? '#EF4444' : (a.status === 'done' ? '#10B981' : '#EF4444')}; border:1px solid ${completedLate ? 'rgba(239,68,68,0.3)' : (a.status === 'done' ? 'rgba(16,185,129,0.3)' : 'rgba(239,68,68,0.3)')}; white-space:nowrap;">${completedLate ? '⏰ Hoàn Thành Trễ' : (a.status === 'done' ? '✓ Đã Hoàn Thành' : '✗ Đã Hủy')}</span>
               </div>
             `;
           }).join('')}
@@ -3910,7 +3919,8 @@ export const UI = {
     const linkedTask = apt.ktsTaskId ? DB.getKtsTasks().find(t => t.id === apt.ktsTaskId) : null;
     const isSurvey = apt.appointmentType === 'site_survey';
     const displayTitle = isSurvey ? (apt.title || '').replace(/^📏\s*/, '') : apt.title;
-    const displayStatus = apt.status === 'done' ? '✓ Đã Hoàn Thành' : apt.status === 'cancelled' ? '✗ Đã Hủy' : (linkedTask?.status === 'in_progress' ? '🔵 Đang Khảo Sát' : '⏳ Sắp Diễn Ra');
+    const completedLate = isKtsTaskCompletedLate(linkedTask);
+    const displayStatus = completedLate ? '⏰ Hoàn Thành Trễ' : (apt.status === 'done' ? '✓ Đã Hoàn Thành' : apt.status === 'cancelled' ? '✗ Đã Hủy' : (linkedTask?.status === 'in_progress' ? '🔵 Đang Khảo Sát' : '⏳ Sắp Diễn Ra'));
 
     const html = `
       <div style="display:flex; flex-direction:column; gap:14px;">
@@ -3941,7 +3951,7 @@ export const UI = {
           </div>
           <div>
             <span style="color:var(--text-muted); font-size:0.7rem;">Trạng Thái</span>
-            <div style="font-weight:700; color:${apt.status === 'done' ? '#10B981' : apt.status === 'cancelled' ? '#EF4444' : linkedTask?.status === 'in_progress' ? '#3B82F6' : '#F59E0B'};">
+            <div style="font-weight:700; color:${completedLate ? '#EF4444' : (apt.status === 'done' ? '#10B981' : apt.status === 'cancelled' ? '#EF4444' : linkedTask?.status === 'in_progress' ? '#3B82F6' : '#F59E0B')};">
               ${displayStatus}
             </div>
           </div>
@@ -4371,14 +4381,17 @@ export const UI = {
         started: owned.filter(t => isOnDate(t.startedAt)).length,
         completed: owned.filter(t => isOnDate(t.completedAt)).length,
         doing: owned.filter(t => t.status === 'in_progress').length,
-        overdue: owned.filter(t => t.status !== 'completed' && t.deadline && new Date(t.deadline) < new Date()).length
+        overdue: owned.filter(t =>
+          (isKtsTaskCompletedLate(t) && isOnDate(t.completedAt)) ||
+          (t.status !== 'completed' && t.deadline && new Date(t.deadline) < new Date())
+        ).length
       };
     });
     const events = [];
     summaries.forEach(summary => summary.daily.forEach(task => {
       if (isOnDate(task.createdAt)) events.push({ time: task.createdAt, action: 'Được giao việc', color: '#8B5CF6', task, kts: summary.kts });
       if (isOnDate(task.startedAt)) events.push({ time: task.startedAt, action: 'Bắt đầu thực hiện', color: '#3B82F6', task, kts: summary.kts });
-      if (isOnDate(task.completedAt)) events.push({ time: task.completedAt, action: 'Hoàn thành & bàn giao', color: '#10B981', task, kts: summary.kts });
+      if (isOnDate(task.completedAt)) events.push({ time: task.completedAt, action: isKtsTaskCompletedLate(task) ? 'Hoàn thành trễ hạn' : 'Hoàn thành & bàn giao', color: isKtsTaskCompletedLate(task) ? '#EF4444' : '#10B981', task, kts: summary.kts });
     }));
     events.sort((a, b) => new Date(b.time) - new Date(a.time));
     const totalCompleted = summaries.reduce((sum, item) => sum + item.completed, 0);
@@ -5001,6 +5014,7 @@ export const UI = {
             ${filtered.map(t => {
               const cd = getKtsCountdownInfo(t.deadline);
               const isCompleted = t.status === 'completed';
+              const isCompletedLate = isKtsTaskCompletedLate(t);
               const typeMap = {
                 site_survey: { label: '📏 Đi Đo Khảo Sát Thực Địa', color: '#F97316' },
                 fast_support: { label: '⚡ Vẽ Phản Ứng Nhanh', color: '#8B5CF6' },
@@ -5011,14 +5025,14 @@ export const UI = {
               const canManage = user.role === 'manager' || t.assignerId === user.id;
 
               return `
-                <div class="section-card kts-task-card" data-id="${t.id}" style="margin-bottom:0; display:flex; flex-direction:column; justify-content:space-between; border-left:4px solid ${isCompleted ? '#10B981' : (cd.isOverdue ? '#EF4444' : tInfo.color)}; relative; overflow:hidden; cursor:pointer; transition:transform 0.15s, box-shadow 0.15s;" title="Bấm để xem chi tiết và thao tác">
+                <div class="section-card kts-task-card" data-id="${t.id}" style="margin-bottom:0; display:flex; flex-direction:column; justify-content:space-between; border-left:4px solid ${isCompletedLate ? '#EF4444' : (isCompleted ? '#10B981' : (cd.isOverdue ? '#EF4444' : tInfo.color))}; relative; overflow:hidden; cursor:pointer; transition:transform 0.15s, box-shadow 0.15s;" title="Bấm để xem chi tiết và thao tác">
                   <div>
                     <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:8px; margin-bottom:8px;">
                       <span style="font-size:0.68rem; font-weight:800; padding:3px 8px; border-radius:6px; background:${tInfo.color}18; color:${tInfo.color}; border:1px solid ${tInfo.color}40;">
                         ${tInfo.label}
                       </span>
-                      <span style="font-size:0.68rem; font-weight:800; padding:3px 8px; border-radius:6px; background:${isCompleted ? 'rgba(16,185,129,0.15)' : 'rgba(245,158,11,0.15)'}; color:${isCompleted ? '#10B981' : '#F59E0B'};">
-                        ${isCompleted ? '✅ ĐÃ HOÀN THÀNH' : (t.status === 'in_progress' ? '🔵 ĐANG THỰC HIỆN' : (t.taskType === 'site_survey' ? '🟡 CHỜ KHẢO SÁT' : '🟡 CHỜ KTS'))}
+                      <span style="font-size:0.68rem; font-weight:800; padding:3px 8px; border-radius:6px; background:${isCompletedLate ? 'rgba(239,68,68,0.14)' : (isCompleted ? 'rgba(16,185,129,0.15)' : 'rgba(245,158,11,0.15)')}; color:${isCompletedLate ? '#EF4444' : (isCompleted ? '#10B981' : '#F59E0B')};">
+                        ${isCompletedLate ? '⏰ HOÀN THÀNH TRỄ' : (isCompleted ? '✅ ĐÃ HOÀN THÀNH' : (t.status === 'in_progress' ? '🔵 ĐANG THỰC HIỆN' : (t.taskType === 'site_survey' ? '🟡 CHỜ KHẢO SÁT' : '🟡 CHỜ KTS')))}
                       </span>
                     </div>
 
@@ -5035,7 +5049,7 @@ export const UI = {
                     ${t.taskType === 'site_survey' && t.surveyAddress ? `<div style="font-size:0.72rem; color:var(--text-muted); margin-bottom:8px;"><i class="fas fa-map-marker-alt" style="color:#F97316;"></i> ${t.surveyAddress}</div>` : ''}
 
                     <!-- Countdown Box -->
-                    <div style="background:${isCompleted ? 'rgba(16,185,129,0.08)' : (cd.isOverdue ? 'rgba(239,68,68,0.1)' : 'rgba(255,255,255,0.04)')}; border:1px solid ${isCompleted ? 'rgba(16,185,129,0.3)' : (cd.isOverdue ? 'rgba(239,68,68,0.3)' : 'var(--border-color)')}; padding:8px 10px; border-radius:8px; margin-bottom:10px; font-size:0.75rem; font-weight:800; color:${isCompleted ? '#10B981' : cd.color}; display:flex; align-items:center; justify-content:space-between; gap:8px; flex-wrap:wrap;">
+                    <div style="background:${isCompletedLate ? 'rgba(239,68,68,0.08)' : (isCompleted ? 'rgba(16,185,129,0.08)' : (cd.isOverdue ? 'rgba(239,68,68,0.1)' : 'rgba(255,255,255,0.04)'))}; border:1px solid ${isCompletedLate ? 'rgba(239,68,68,0.3)' : (isCompleted ? 'rgba(16,185,129,0.3)' : (cd.isOverdue ? 'rgba(239,68,68,0.3)' : 'var(--border-color)'))}; padding:8px 10px; border-radius:8px; margin-bottom:10px; font-size:0.75rem; font-weight:800; color:${isCompletedLate ? '#EF4444' : (isCompleted ? '#10B981' : cd.color)}; display:flex; align-items:center; justify-content:space-between; gap:8px; flex-wrap:wrap;">
                       <span style="display:inline-flex; align-items:center; gap:6px; flex-wrap:wrap;"><i class="fas ${isCompleted ? 'fa-check-circle' : 'fa-clock'}"></i> ${isCompleted ? `Hoàn thành ${fmt.datetimeBadges(t.completedAt || t.updatedAt)}` : renderKtsCountdown(cd)}</span>
                       ${!isCompleted ? `<span style="font-size:0.68rem; opacity:0.9; display:inline-flex; align-items:center; gap:5px; flex-wrap:wrap;">Hạn: ${fmt.datetimeBadges(t.deadline)}</span>` : ''}
                     </div>
@@ -5249,6 +5263,7 @@ export const UI = {
 
     const cd = getKtsCountdownInfo(freshTask.deadline);
     const isCompleted = freshTask.status === 'completed';
+    const isCompletedLate = isKtsTaskCompletedLate(freshTask);
 
     const assignedTime = freshTask.createdAt ? fmt.datetimeBadges(freshTask.createdAt) : 'Chưa ghi nhận';
     const assignerName = freshTask.assignerName || 'Sale / Admin';
@@ -5279,8 +5294,8 @@ export const UI = {
             <span style="font-size:0.72rem; font-weight:800; padding:4px 10px; border-radius:6px; background:${tInfo.color}20; color:${tInfo.color}; border:1px solid ${tInfo.color}40;">
               ${tInfo.label}
             </span>
-            <span style="font-size:0.72rem; font-weight:800; padding:4px 10px; border-radius:6px; background:${isCompleted ? 'rgba(16,185,129,0.15)' : (freshTask.status === 'in_progress' ? 'rgba(59,130,246,0.15)' : 'rgba(245,158,11,0.15)')}; color:${isCompleted ? '#10B981' : (freshTask.status === 'in_progress' ? '#3B82F6' : '#F59E0B')};">
-              ${isCompleted ? '✅ ĐÃ HOÀN THÀNH' : (freshTask.status === 'in_progress' ? '🔵 ĐANG THỰC HIỆN' : (isSurvey ? '🟡 CHỜ KHẢO SÁT' : '🟡 CHỜ KTS'))}
+            <span style="font-size:0.72rem; font-weight:800; padding:4px 10px; border-radius:6px; background:${isCompletedLate ? 'rgba(239,68,68,0.14)' : (isCompleted ? 'rgba(16,185,129,0.15)' : (freshTask.status === 'in_progress' ? 'rgba(59,130,246,0.15)' : 'rgba(245,158,11,0.15)'))}; color:${isCompletedLate ? '#EF4444' : (isCompleted ? '#10B981' : (freshTask.status === 'in_progress' ? '#3B82F6' : '#F59E0B'))};">
+              ${isCompletedLate ? '⏰ HOÀN THÀNH TRỄ' : (isCompleted ? '✅ ĐÃ HOÀN THÀNH' : (freshTask.status === 'in_progress' ? '🔵 ĐANG THỰC HIỆN' : (isSurvey ? '🟡 CHỜ KHẢO SÁT' : '🟡 CHỜ KTS')))}
             </span>
           </div>
 
@@ -5307,9 +5322,9 @@ export const UI = {
             </div>
           ` : ''}
 
-          <div style="margin-top:10px; background:${isCompleted ? 'rgba(16,185,129,0.08)' : (cd.isOverdue ? 'rgba(239,68,68,0.1)' : 'rgba(255,255,255,0.04)')}; border:1px solid ${isCompleted ? 'rgba(16,185,129,0.3)' : (cd.isOverdue ? 'rgba(239,68,68,0.3)' : 'var(--border-color)')}; padding:8px 12px; border-radius:8px; display:flex; justify-content:space-between; align-items:center; gap:8px; flex-wrap:wrap; font-size:0.78rem;">
-            <span style="font-weight:700; color:${isCompleted ? '#10B981' : cd.color};">
-              <i class="fas ${isCompleted ? 'fa-check-circle' : 'fa-clock'}"></i> ${isCompleted ? 'Đã hoàn thành bàn giao' : renderKtsCountdown(cd)}
+          <div style="margin-top:10px; background:${isCompletedLate ? 'rgba(239,68,68,0.08)' : (isCompleted ? 'rgba(16,185,129,0.08)' : (cd.isOverdue ? 'rgba(239,68,68,0.1)' : 'rgba(255,255,255,0.04)'))}; border:1px solid ${isCompletedLate ? 'rgba(239,68,68,0.3)' : (isCompleted ? 'rgba(16,185,129,0.3)' : (cd.isOverdue ? 'rgba(239,68,68,0.3)' : 'var(--border-color)'))}; padding:8px 12px; border-radius:8px; display:flex; justify-content:space-between; align-items:center; gap:8px; flex-wrap:wrap; font-size:0.78rem;">
+            <span style="font-weight:700; color:${isCompletedLate ? '#EF4444' : (isCompleted ? '#10B981' : cd.color)};">
+              <i class="fas ${isCompletedLate ? 'fa-exclamation-triangle' : (isCompleted ? 'fa-check-circle' : 'fa-clock')}"></i> ${isCompletedLate ? 'Đã hoàn thành nhưng quá hạn' : (isCompleted ? 'Đã hoàn thành bàn giao' : renderKtsCountdown(cd))}
             </span>
             <span style="color:var(--text-muted); display:inline-flex; align-items:center; gap:6px; flex-wrap:wrap;">Hạn chót: ${fmt.datetimeBadges(freshTask.deadline)}</span>
           </div>
@@ -5350,10 +5365,10 @@ export const UI = {
 
             <!-- 3. Xong khi nào -->
             <div style="position:relative;">
-              <div style="position:absolute; left:-27px; top:0; width:14px; height:14px; border-radius:50%; background:${completedTime ? '#10B981' : '#64748B'}; border:3px solid var(--bg-primary);"></div>
-              <div style="font-size:0.82rem; font-weight:800; color:${completedTime ? '#10B981' : 'var(--text-muted)'}; display:flex; justify-content:space-between; align-items:center;">
-                <span>✅ 3. Thời Điểm Hoàn Thành</span>
-                <span style="font-size:0.72rem; color:${completedTime ? '#10B981' : '#64748B'}; font-weight:700;">${completedTime || 'Chưa hoàn thành'}</span>
+              <div style="position:absolute; left:-27px; top:0; width:14px; height:14px; border-radius:50%; background:${completedTime ? (isCompletedLate ? '#EF4444' : '#10B981') : '#64748B'}; border:3px solid var(--bg-primary);"></div>
+              <div style="font-size:0.82rem; font-weight:800; color:${completedTime ? (isCompletedLate ? '#EF4444' : '#10B981') : 'var(--text-muted)'}; display:flex; justify-content:space-between; align-items:center;">
+                <span>${isCompletedLate ? '⏰' : '✅'} 3. ${isCompletedLate ? 'Hoàn Thành Trễ Hạn' : 'Thời Điểm Hoàn Thành'}</span>
+                <span style="font-size:0.72rem; color:${completedTime ? (isCompletedLate ? '#EF4444' : '#10B981') : '#64748B'}; font-weight:700;">${completedTime || 'Chưa hoàn thành'}</span>
               </div>
               <div style="font-size:0.78rem; color:${completedTime ? 'var(--text-secondary)' : 'var(--text-muted)'}; margin-top:2px;">
                 ${completedTime ? `${isSurvey ? 'Người phụ trách' : 'KTS'} <strong>${ktsName}</strong> đã hoàn thành công việc.` : '⏳ Công việc chưa hoàn thành.'}
