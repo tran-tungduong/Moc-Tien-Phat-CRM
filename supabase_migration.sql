@@ -49,6 +49,7 @@ ALTER TABLE public.kts_tasks ADD COLUMN IF NOT EXISTS completed_note TEXT;
 ALTER TABLE public.kts_tasks ADD COLUMN IF NOT EXISTS result_note TEXT;
 ALTER TABLE public.kts_tasks ADD COLUMN IF NOT EXISTS result_file_link TEXT;
 ALTER TABLE public.kts_tasks ADD COLUMN IF NOT EXISTS result_image TEXT;
+ALTER TABLE public.kts_tasks ADD COLUMN IF NOT EXISTS work_sessions JSONB DEFAULT '[]'::jsonb;
 ALTER TABLE public.kts_tasks ADD COLUMN IF NOT EXISTS history JSONB DEFAULT '[]'::jsonb;
 ALTER TABLE public.kts_tasks ADD COLUMN IF NOT EXISTS assignee_type TEXT DEFAULT 'internal';
 ALTER TABLE public.kts_tasks ADD COLUMN IF NOT EXISTS external_assignee_name TEXT;

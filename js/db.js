@@ -528,6 +528,7 @@ export const DB = {
           resultNote: t.result_note || t.completed_note || '',
           resultFileLink: t.result_file_link || '',
           resultImage: t.result_image || '',
+          workSessions: Array.isArray(t.work_sessions) ? t.work_sessions : [],
           history: Array.isArray(t.history) ? t.history : [],
           createdAt: t.created_at,
           updatedAt: t.updated_at
@@ -859,6 +860,7 @@ export const DB = {
       result_note: task.resultNote || task.completedNote || null,
       result_file_link: task.resultFileLink || null,
       result_image: task.resultImage || null,
+      work_sessions: Array.isArray(task.workSessions) ? task.workSessions : [],
       history: Array.isArray(task.history) ? task.history : [],
       created_at: task.createdAt,
       updated_at: task.updatedAt || task.createdAt
@@ -1779,6 +1781,7 @@ export const DB = {
       createdAt: now,
       startedAt: null,
       completedAt: null,
+      workSessions: [],
       history: [
         {
           timestamp: now,
@@ -1838,19 +1841,29 @@ export const DB = {
       const oldTask = db.ktsTasks[idx];
       const now = new Date().toISOString();
       const history = [...(oldTask.history || [])];
+      const workSessions = [...(oldTask.workSessions || [])];
 
       if (fields.status === 'in_progress' && oldTask.status !== 'in_progress') {
-        fields.startedAt = fields.startedAt || now;
+        fields.startedAt = oldTask.startedAt || fields.startedAt || now;
+        workSessions.push({ startedAt: now, endedAt: null });
         history.push({
-          timestamp: fields.startedAt,
-          action: '🔵 Tiếp nhận & Bắt đầu làm',
+          timestamp: now,
+          action: oldTask.status === 'paused' ? '▶️ Tiếp tục làm' : '🔵 Tiếp nhận & Bắt đầu làm',
           user: oldTask.ktsName || 'Người thực hiện',
-          note: 'Người thực hiện đã tiếp nhận và chuyển trạng thái sang Đang thực hiện'
+          note: oldTask.status === 'paused' ? 'Người thực hiện tiếp tục phiên làm việc mới' : 'Người thực hiện đã tiếp nhận và chuyển trạng thái sang Đang thực hiện'
         });
+      }
+
+      if (fields.status === 'paused' && oldTask.status === 'in_progress') {
+        const openSession = [...workSessions].reverse().find(session => !session.endedAt);
+        if (openSession) openSession.endedAt = now;
+        history.push({ timestamp: now, action: '⏸️ Tạm dừng', user: oldTask.ktsName || 'Người thực hiện', note: 'Đã tạm dừng phiên làm việc' });
       }
 
       if (fields.status === 'completed' && oldTask.status !== 'completed') {
         fields.completedAt = fields.completedAt || now;
+        const openSession = [...workSessions].reverse().find(session => !session.endedAt);
+        if (openSession) openSession.endedAt = fields.completedAt;
         const completedLate = Boolean(oldTask.deadline && new Date(fields.completedAt) > new Date(oldTask.deadline));
         history.push({
           timestamp: fields.completedAt,
@@ -1860,7 +1873,7 @@ export const DB = {
         });
       }
 
-      db.ktsTasks[idx] = { ...oldTask, ...fields, history, updatedAt: now };
+      db.ktsTasks[idx] = { ...oldTask, ...fields, workSessions, history, updatedAt: now };
       this.save(db);
 
       const updatedTask = db.ktsTasks[idx];

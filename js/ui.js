@@ -4482,7 +4482,8 @@ export const UI = {
     const ktsUsers = DB.getUsers().filter(u => u.role === 'kts');
     const allTasks = DB.getKtsTasks();
     const isOnDate = value => value && localDateKey(value) === reportDate;
-    const hasDailyActivity = task => isOnDate(task.createdAt) || isOnDate(task.startedAt) || isOnDate(task.completedAt);
+    const hasDailyActivity = task => isOnDate(task.createdAt) || isOnDate(task.startedAt) || isOnDate(task.completedAt) ||
+      (task.workSessions || []).some(session => isOnDate(session.startedAt) || isOnDate(session.endedAt));
     const visibleUsers = selectedKtsId === 'all' ? ktsUsers : ktsUsers.filter(u => u.id === selectedKtsId);
     const typeMap = {
       site_survey: '📏 Khảo sát thực địa',
@@ -4497,7 +4498,7 @@ export const UI = {
         kts,
         daily,
         assigned: owned.filter(t => isOnDate(t.createdAt)).length,
-        started: owned.filter(t => isOnDate(t.startedAt)).length,
+        started: owned.filter(t => isOnDate(t.startedAt) || (t.workSessions || []).some(session => isOnDate(session.startedAt))).length,
         completed: owned.filter(t => isOnDate(t.completedAt)).length,
         doing: owned.filter(t => t.status === 'in_progress').length,
         overdue: owned.filter(t =>
@@ -4509,10 +4510,43 @@ export const UI = {
     const events = [];
     summaries.forEach(summary => summary.daily.forEach(task => {
       if (isOnDate(task.createdAt)) events.push({ time: task.createdAt, action: 'Được giao việc', color: '#8B5CF6', task, kts: summary.kts });
-      if (isOnDate(task.startedAt)) events.push({ time: task.startedAt, action: 'Bắt đầu thực hiện', color: '#3B82F6', task, kts: summary.kts });
+      const sessions = task.workSessions || [];
+      if (sessions.length > 0) {
+        sessions.forEach((session, index) => {
+          if (isOnDate(session.startedAt)) events.push({ time: session.startedAt, action: index === 0 ? 'Bắt đầu thực hiện' : 'Tiếp tục thực hiện', color: '#3B82F6', task, kts: summary.kts });
+          if (isOnDate(session.endedAt) && session.endedAt !== task.completedAt) events.push({ time: session.endedAt, action: 'Tạm dừng', color: '#F59E0B', task, kts: summary.kts });
+        });
+      } else if (isOnDate(task.startedAt)) {
+        events.push({ time: task.startedAt, action: 'Bắt đầu thực hiện', color: '#3B82F6', task, kts: summary.kts });
+      }
       if (isOnDate(task.completedAt)) events.push({ time: task.completedAt, action: isKtsTaskCompletedLate(task) ? 'Hoàn thành trễ hạn' : 'Hoàn thành & bàn giao', color: isKtsTaskCompletedLate(task) ? '#EF4444' : '#10B981', task, kts: summary.kts });
     }));
     events.sort((a, b) => new Date(b.time) - new Date(a.time));
+    const reportDayStart = new Date(`${reportDate}T00:00:00`);
+    const reportDayEnd = new Date(`${reportDate}T23:59:59.999`);
+    const minutesWorkedOnDate = task => {
+      const sessions = (task.workSessions && task.workSessions.length > 0)
+        ? task.workSessions
+        : (task.startedAt ? [{ startedAt: task.startedAt, endedAt: task.completedAt || (task.status === 'in_progress' ? new Date().toISOString() : task.updatedAt) }] : []);
+      return Math.round(sessions.reduce((total, session) => {
+      const start = new Date(session.startedAt);
+      const end = session.endedAt ? new Date(session.endedAt) : new Date();
+      const clippedStart = new Date(Math.max(start.getTime(), reportDayStart.getTime()));
+      const clippedEnd = new Date(Math.min(end.getTime(), reportDayEnd.getTime()));
+      return total + Math.max(0, clippedEnd - clippedStart);
+      }, 0) / 60000);
+    };
+    const durationText = minutes => minutes > 0 ? `${Math.floor(minutes / 60) ? `${Math.floor(minutes / 60)} giờ ` : ''}${minutes % 60} phút` : 'Chưa ghi nhận thời lượng';
+    const projectMap = new Map();
+    events.forEach(event => {
+      const projectKey = event.task.leadId || event.task.leadName || 'other';
+      if (!projectMap.has(projectKey)) projectMap.set(projectKey, { name: event.task.leadName || 'Dự án khác', taskMap: new Map(), events: [] });
+      const project = projectMap.get(projectKey);
+      project.events.push(event);
+      if (!project.taskMap.has(event.task.id)) project.taskMap.set(event.task.id, { task: event.task, events: [] });
+      project.taskMap.get(event.task.id).events.push(event);
+    });
+    const projectGroups = [...projectMap.values()].map(project => ({ ...project, tasks: [...project.taskMap.values()], totalMinutes: [...project.taskMap.values()].reduce((sum, item) => sum + minutesWorkedOnDate(item.task), 0) }));
     const totalCompleted = summaries.reduce((sum, item) => sum + item.completed, 0);
     const totalStarted = summaries.reduce((sum, item) => sum + item.started, 0);
     const totalAssigned = summaries.reduce((sum, item) => sum + item.assigned, 0);
@@ -4539,9 +4573,22 @@ export const UI = {
           </table></div>
         </div>
         <div class="section-card">
-          <div class="section-header"><i class="fas fa-stream" style="color:var(--primary);"></i><span>Dòng Thời Gian Trong Ngày (${events.length})</span></div>
+          <div class="section-header"><i class="fas fa-stream" style="color:var(--primary);"></i><span>Hoạt Động Theo Công Trình (${projectGroups.length} công trình · ${events.length} mốc)</span></div>
           <div style="display:flex; flex-direction:column; gap:9px; margin-top:12px;">
-            ${events.length === 0 ? '<div class="empty-state" style="padding:24px;"><i class="fas fa-clipboard-check"></i><p>Chưa ghi nhận hoạt động KTS trong ngày này.</p></div>' : events.map(event => `<button class="kts-daily-event" data-id="${event.task.id}" style="width:100%; text-align:left; background:rgba(255,255,255,0.025); border:1px solid var(--border-color); border-left:4px solid ${event.color}; border-radius:9px; padding:11px 12px; cursor:pointer; color:inherit;"><div style="display:flex; justify-content:space-between; align-items:flex-start; gap:12px; flex-wrap:wrap;"><div style="display:flex; align-items:center; gap:7px; flex-wrap:wrap;">${fmt.datetimeBadges(event.time)}<strong style="color:${event.color}; font-size:0.76rem; margin-left:2px;">${event.action}</strong></div><span style="color:var(--text-muted); font-size:0.72rem;">${event.kts.name}</span></div><div style="font-weight:700; color:var(--text-primary); margin-top:7px;">${event.task.title}</div><div style="font-size:0.72rem; color:var(--text-muted); margin-top:2px;">${typeMap[event.task.taskType] || 'Công việc KTS'} · ${event.task.leadName || 'Dự án'}</div></button>`).join('')}
+            ${projectGroups.length === 0 ? '<div class="empty-state" style="padding:24px;"><i class="fas fa-clipboard-check"></i><p>Chưa ghi nhận hoạt động KTS trong ngày này.</p></div>' : projectGroups.map((project, projectIndex) => `
+              <details ${projectGroups.length === 1 || projectIndex === 0 ? 'open' : ''} style="border:1px solid var(--border-color); border-radius:11px; background:rgba(255,255,255,0.02); overflow:hidden;">
+                <summary style="cursor:pointer; list-style:none; padding:12px 14px; display:flex; justify-content:space-between; gap:12px; align-items:center;">
+                  <span><strong style="color:var(--text-primary);"><i class="fas fa-building" style="color:var(--primary);"></i> ${project.name}</strong><span style="display:block; font-size:0.68rem; color:var(--text-muted); margin-top:3px;">${project.tasks.length} công việc · ${project.events.length} hoạt động</span></span>
+                  <span style="font-size:0.72rem; font-weight:800; color:#3B82F6; white-space:nowrap;"><i class="far fa-clock"></i> ${durationText(project.totalMinutes)}</span>
+                </summary>
+                <div style="border-top:1px solid var(--border-color); padding:10px; display:flex; flex-direction:column; gap:8px;">
+                  ${project.tasks.map(item => {
+                    const taskMinutes = minutesWorkedOnDate(item.task);
+                    const latestEvent = item.events.slice().sort((a, b) => new Date(b.time) - new Date(a.time))[0];
+                    return `<div style="border-left:4px solid ${latestEvent.color}; background:rgba(255,255,255,0.025); border-radius:8px; padding:9px 11px;"><button class="kts-daily-event" data-id="${item.task.id}" style="width:100%; border:none; background:none; color:inherit; padding:0; cursor:pointer; text-align:left;"><div style="display:flex; justify-content:space-between; gap:10px; align-items:flex-start;"><span><strong style="color:var(--text-primary);">${item.task.title}</strong><span style="display:block; font-size:0.68rem; color:var(--text-muted); margin-top:2px;">${typeMap[item.task.taskType] || 'Công việc KTS'} · ${item.task.ktsName || ''}</span></span><span style="font-size:0.68rem; color:${latestEvent.color}; font-weight:800; white-space:nowrap;">${latestEvent.action}</span></div></button><details style="margin-top:7px;"><summary style="cursor:pointer; color:var(--text-muted); font-size:0.68rem;">${durationText(taskMinutes)} · Xem ${item.events.length} mốc hoạt động</summary><div style="margin-top:7px; display:flex; flex-direction:column; gap:5px;">${item.events.slice().sort((a, b) => new Date(a.time) - new Date(b.time)).map(event => `<div style="display:flex; justify-content:space-between; gap:10px; font-size:0.68rem; border-top:1px dashed var(--border-color); padding-top:5px;"><span style="color:${event.color}; font-weight:700;">${event.action}</span><span>${fmt.datetimeBadges(event.time)}</span></div>`).join('')}</div></details></div>`;
+                  }).join('')}
+                </div>
+              </details>`).join('')}
           </div>
         </div>
       </div>`;
@@ -5187,7 +5234,7 @@ export const UI = {
                         ${tInfo.label}
                       </span>
                       <span style="font-size:0.68rem; font-weight:800; padding:3px 8px; border-radius:6px; background:${isCompletedLate ? 'rgba(239,68,68,0.14)' : (isCompleted ? 'rgba(16,185,129,0.15)' : 'rgba(245,158,11,0.15)')}; color:${isCompletedLate ? '#EF4444' : (isCompleted ? '#10B981' : '#F59E0B')};">
-                        ${isCompletedLate ? '⏰ HOÀN THÀNH TRỄ' : (isCompleted ? '✅ ĐÃ HOÀN THÀNH' : (t.status === 'in_progress' ? '🔵 ĐANG THỰC HIỆN' : (t.taskType === 'site_survey' ? '🟡 CHỜ KHẢO SÁT' : '🟡 CHỜ KTS')))}
+                        ${isCompletedLate ? '⏰ HOÀN THÀNH TRỄ' : (isCompleted ? '✅ ĐÃ HOÀN THÀNH' : (t.status === 'in_progress' ? '🔵 ĐANG THỰC HIỆN' : (t.status === 'paused' ? '⏸️ TẠM DỪNG' : (t.taskType === 'site_survey' ? '🟡 CHỜ KHẢO SÁT' : '🟡 CHỜ KTS'))))}
                       </span>
                     </div>
 
@@ -5453,6 +5500,7 @@ export const UI = {
     const cd = getKtsCountdownInfo(freshTask.deadline);
     const isCompleted = freshTask.status === 'completed';
     const isCompletedLate = isKtsTaskCompletedLate(freshTask);
+    const canOperateTask = user.role === 'manager' || freshTask.ktsId === user.id || freshTask.responsibleUserId === user.id;
 
     const assignedTime = freshTask.createdAt ? fmt.datetimeBadges(freshTask.createdAt) : 'Chưa ghi nhận';
     const assignerName = freshTask.assignerName || 'Sale / Admin';
@@ -5484,7 +5532,7 @@ export const UI = {
               ${tInfo.label}
             </span>
             <span style="font-size:0.72rem; font-weight:800; padding:4px 10px; border-radius:6px; background:${isCompletedLate ? 'rgba(239,68,68,0.14)' : (isCompleted ? 'rgba(16,185,129,0.15)' : (freshTask.status === 'in_progress' ? 'rgba(59,130,246,0.15)' : 'rgba(245,158,11,0.15)'))}; color:${isCompletedLate ? '#EF4444' : (isCompleted ? '#10B981' : (freshTask.status === 'in_progress' ? '#3B82F6' : '#F59E0B'))};">
-              ${isCompletedLate ? '⏰ HOÀN THÀNH TRỄ' : (isCompleted ? '✅ ĐÃ HOÀN THÀNH' : (freshTask.status === 'in_progress' ? '🔵 ĐANG THỰC HIỆN' : (isSurvey ? '🟡 CHỜ KHẢO SÁT' : '🟡 CHỜ KTS')))}
+              ${isCompletedLate ? '⏰ HOÀN THÀNH TRỄ' : (isCompleted ? '✅ ĐÃ HOÀN THÀNH' : (freshTask.status === 'in_progress' ? '🔵 ĐANG THỰC HIỆN' : (freshTask.status === 'paused' ? '⏸️ TẠM DỪNG' : (isSurvey ? '🟡 CHỜ KHẢO SÁT' : '🟡 CHỜ KTS'))))}
             </span>
           </div>
 
@@ -5596,10 +5644,13 @@ export const UI = {
         <!-- Footer Buttons -->
         <div style="display:flex; justify-content:space-between; align-items:center; margin-top:4px; padding-top:12px; border-top:1px solid var(--border-color);">
           <div style="display:flex; gap:8px;">
-            ${!isCompleted && freshTask.status === 'pending' ? `
-              <button class="btn-secondary btn-sm" id="btn-detail-start-task" style="background:rgba(59,130,246,0.15); color:#3B82F6; border:1px solid rgba(59,130,246,0.3); font-weight:700; cursor:pointer;"><i class="fas fa-play"></i> Bắt Đầu Làm</button>
+            ${canOperateTask && !isCompleted && (freshTask.status === 'pending' || freshTask.status === 'paused') ? `
+              <button class="btn-secondary btn-sm" id="btn-detail-start-task" style="background:rgba(59,130,246,0.15); color:#3B82F6; border:1px solid rgba(59,130,246,0.3); font-weight:700; cursor:pointer;"><i class="fas fa-play"></i> ${freshTask.status === 'paused' ? 'Tiếp Tục Làm' : 'Bắt Đầu Làm'}</button>
             ` : ''}
-            ${!isCompleted ? `
+            ${canOperateTask && !isCompleted && freshTask.status === 'in_progress' ? `
+              <button class="btn-secondary btn-sm" id="btn-detail-pause-task" style="background:rgba(245,158,11,0.12); color:#F59E0B; border:1px solid rgba(245,158,11,0.3); font-weight:700; cursor:pointer;"><i class="fas fa-pause"></i> Tạm Dừng</button>
+            ` : ''}
+            ${canOperateTask && !isCompleted ? `
               <button class="btn-primary btn-sm" id="btn-detail-complete-task" style="background:linear-gradient(135deg, #10B981, #059669); border:none; font-weight:700; cursor:pointer;"><i class="fas fa-check-circle"></i> Hoàn Thành</button>
             ` : ''}
           </div>
@@ -5613,8 +5664,15 @@ export const UI = {
     document.getElementById('btn-close-detail-modal')?.addEventListener('click', () => modal.close());
 
     document.getElementById('btn-detail-start-task')?.addEventListener('click', () => {
-      DB.updateKtsTask(freshTask.id, { status: 'in_progress', startedAt: new Date().toISOString() });
-      Toast.info('Đã nhận việc và chuyển trạng thái: Đang thực hiện.');
+      DB.updateKtsTask(freshTask.id, { status: 'in_progress' });
+      Toast.info(freshTask.status === 'paused' ? 'Đã tiếp tục công việc và bắt đầu phiên mới.' : 'Đã nhận việc và chuyển trạng thái: Đang thực hiện.');
+      modal.close();
+      if (onSave) onSave();
+    });
+
+    document.getElementById('btn-detail-pause-task')?.addEventListener('click', () => {
+      DB.updateKtsTask(freshTask.id, { status: 'paused' });
+      Toast.info('Đã tạm dừng và ghi nhận thời lượng phiên làm việc.');
       modal.close();
       if (onSave) onSave();
     });

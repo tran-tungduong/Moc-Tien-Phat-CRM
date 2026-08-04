@@ -240,6 +240,7 @@ CREATE TABLE public.kts_tasks (
     result_note TEXT,
     result_file_link TEXT,
     result_image TEXT,
+    work_sessions JSONB DEFAULT '[]'::jsonb,
     history JSONB DEFAULT '[]'::jsonb,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
