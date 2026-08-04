@@ -343,6 +343,7 @@ export const DB = {
             surveyBy: l.survey_by || '',
             surveyDate: l.survey_date || '',
             surveyNote: l.survey_note || '',
+            styleImages: Array.isArray(l.style_images) ? l.style_images : [],
             failReason: l.fail_reason || '',
             failedAtStage: l.failed_at_stage || '',
             createdAt: l.created_at,
@@ -605,6 +606,7 @@ export const DB = {
         survey_by: lead.surveyBy || null,
         survey_date: lead.surveyDate || null,
         survey_note: lead.surveyNote || null,
+        style_images: Array.isArray(lead.styleImages) ? lead.styleImages : [],
         fail_reason: lead.failReason || null,
         failed_at_stage: lead.failedAtStage || null,
         created_at: lead.createdAt,
@@ -1002,12 +1004,13 @@ export const DB = {
       homeAddress: data.homeAddress || '',
       interestedIn: data.interestedIn || '',
       nextFollowUp: data.nextFollowUp || '',
+      styleImages: Array.isArray(data.styleImages) ? data.styleImages : [],
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
       history: []
     };
     const userName = this.getUserById(userId)?.name || 'Nhân viên';
-    const newH = this._addLeadHistory(lead, 'Tạo lead mới', userName);
+    const newH = this._addLeadHistory(lead, 'Tạo khách hàng mới', userName);
     db.leads.unshift(lead);
     this.save(db);
     this._pushLeadToSupabase(lead, newH);
@@ -1808,7 +1811,7 @@ export const DB = {
       this.addNotification({
         userId: newTask.ktsId,
         title: newTask.taskType === 'site_survey' ? '📏 Yêu cầu khảo sát mới!' : '🚀 Yêu cầu công việc KTS mới!',
-        message: `${newTask.assignerName || 'Sale'} đã giao việc: "${newTask.title}" cho Lead ${newTask.leadName}`,
+        message: `${newTask.assignerName || 'Sale'} đã giao việc: "${newTask.title}" cho khách hàng ${newTask.leadName}`,
         type: 'kts_task',
         targetId: newTask.id
       });

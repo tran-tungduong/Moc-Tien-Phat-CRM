@@ -126,6 +126,7 @@ CREATE TABLE IF NOT EXISTS public.kts_logs (
 
 -- 3b. Chuẩn hóa các cột đang được ứng dụng sử dụng
 ALTER TABLE public.leads ADD COLUMN IF NOT EXISTS home_address TEXT;
+ALTER TABLE public.leads ADD COLUMN IF NOT EXISTS style_images JSONB DEFAULT '[]'::jsonb;
 ALTER TABLE public.contracts ADD COLUMN IF NOT EXISTS home_address TEXT;
 ALTER TABLE public.contracts ADD COLUMN IF NOT EXISTS construction_days INT DEFAULT 0;
 ALTER TABLE public.contract_payments ADD COLUMN IF NOT EXISTS payment_type TEXT DEFAULT 'installment';

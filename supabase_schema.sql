@@ -75,6 +75,7 @@ CREATE TABLE public.leads (
     survey_by TEXT,
     survey_date DATE,
     survey_note TEXT,
+    style_images JSONB DEFAULT '[]'::jsonb,
     fail_reason TEXT,
     failed_at_stage TEXT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),

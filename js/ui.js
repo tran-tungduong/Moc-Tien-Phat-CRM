@@ -675,7 +675,7 @@ export const UI = {
       { id: 'kts_tasks', label: 'Công Việc KTS', icon: 'fa-tasks', roles: ['manager', 'kts', 'sales', 'marketing', 'accountant'] },
       { id: 'kts_reports', label: 'Báo Cáo KTS', icon: 'fa-drafting-compass', roles: ['kts'] },
       { id: 'appointments', label: 'Lịch Hẹn', icon: 'fa-calendar-alt', roles: ['manager', 'sales', 'marketing', 'accountant', 'kts'] },
-      { id: 'leads', label: 'Leads', icon: 'fa-user-friends', roles: ['manager', 'sales', 'marketing', 'accountant'] },
+      { id: 'leads', label: 'Khách Hàng', icon: 'fa-user-friends', roles: ['manager', 'sales', 'marketing', 'accountant'] },
       { id: 'contracts', label: 'Hợp Đồng', icon: 'fa-file-contract', roles: ['manager', 'sales', 'accountant'] },
       { id: 'campaigns', label: 'Chiến Dịch', icon: 'fa-bullhorn', roles: ['manager', 'marketing'] },
       { id: 'portfolio', label: 'Portfolio', icon: 'fa-images', roles: ['manager', 'sales', 'marketing', 'accountant'] },
@@ -872,11 +872,11 @@ export const UI = {
               </div>
             </div>
           ` : user.role === 'marketing' ? `
-            <div class="kpi-card" id="kpi-total-leads" style="border-color:rgba(197,168,128,0.4); cursor:pointer;" title="Bấm để xem biểu đồ chi tiết tổng leads">
+            <div class="kpi-card" id="kpi-total-leads" style="border-color:rgba(197,168,128,0.4); cursor:pointer;" title="Bấm để xem biểu đồ chi tiết tổng khách hàng">
               <div class="kpi-icon" style="background:rgba(197,168,128,0.15);color:var(--primary);"><i class="fas fa-user-friends"></i></div>
               <div class="kpi-body">
                 <div class="kpi-val">${analytics.totalLeads}</div>
-                <div class="kpi-label">Tổng Leads MKT <i class="fas fa-chart-pie" style="font-size:0.65rem; color:var(--primary); margin-left:4px;"></i></div>
+                <div class="kpi-label">Tổng Khách Hàng MKT <i class="fas fa-chart-pie" style="font-size:0.65rem; color:var(--primary); margin-left:4px;"></i></div>
                 <div class="kpi-sub">+${analytics.leadsThisMonth} tháng này</div>
               </div>
             </div>
@@ -886,7 +886,7 @@ export const UI = {
               <div class="kpi-body">
                 <div class="kpi-val" style="color:#F59E0B;">${fmt.currency(analytics.totalCampaignSpent)}</div>
                 <div class="kpi-label">Chi Phí Quảng Cáo (Spent)</div>
-                <div class="kpi-sub">CPL: ${analytics.totalLeadsFromCampaigns > 0 ? fmt.currency(analytics.avgCPL) : '—'} / Lead</div>
+                <div class="kpi-sub">Chi phí/khách: ${analytics.totalLeadsFromCampaigns > 0 ? fmt.currency(analytics.avgCPL) : '—'}</div>
               </div>
             </div>
 
@@ -935,11 +935,11 @@ export const UI = {
               `;
             })()}
           ` : `
-            <div class="kpi-card" id="kpi-total-leads" style="border-color:rgba(197,168,128,0.4); cursor:pointer;" title="Bấm để xem biểu đồ chi tiết tổng leads">
+            <div class="kpi-card" id="kpi-total-leads" style="border-color:rgba(197,168,128,0.4); cursor:pointer;" title="Bấm để xem biểu đồ chi tiết tổng khách hàng">
               <div class="kpi-icon" style="background:rgba(197,168,128,0.15);color:var(--primary);"><i class="fas fa-user-friends"></i></div>
               <div class="kpi-body">
                 <div class="kpi-val">${analytics.totalLeads}</div>
-                <div class="kpi-label">Tổng Leads <i class="fas fa-chart-pie" style="font-size:0.65rem; color:var(--primary); margin-left:4px;"></i></div>
+                <div class="kpi-label">Tổng Khách Hàng <i class="fas fa-chart-pie" style="font-size:0.65rem; color:var(--primary); margin-left:4px;"></i></div>
                 <div class="kpi-sub">+${analytics.leadsThisMonth} tháng này</div>
               </div>
             </div>
@@ -971,7 +971,7 @@ export const UI = {
             <div class="section-card" style="margin-bottom:0;">
               <div class="section-header">
                 <i class="fas fa-chart-pie" style="color:var(--primary);"></i>
-                <span>Phân Bổ Leads Theo Kênh Ads</span>
+                <span>Phân Bổ Khách Hàng Theo Kênh Ads</span>
                 <button class="btn-link" id="dash-go-leads">Xem tất cả →</button>
               </div>
               <div style="display:flex; flex-direction:column; gap:8px; margin-top:10px;">
@@ -986,7 +986,7 @@ export const UI = {
                       <div style="flex:1;">
                         <div style="display:flex; justify-content:space-between; font-size:0.75rem; margin-bottom:3px;">
                           <span style="color:var(--text-secondary); font-weight:600;">${src.label}</span>
-                          <span style="color:${src.color || 'var(--primary)'}; font-weight:700;">${count} leads (${pct}%)</span>
+                          <span style="color:${src.color || 'var(--primary)'}; font-weight:700;">${count} khách hàng (${pct}%)</span>
                         </div>
                         <div style="height:4px; background:rgba(0,0,0,0.06); border-radius:2px; overflow:hidden;">
                           <div style="height:4px; width:${pct}%; background:${src.color || 'var(--primary)'}; border-radius:2px;"></div>
@@ -1014,7 +1014,7 @@ export const UI = {
                         <div style="font-size:0.68rem; color:var(--text-muted); margin-top:2px;">Kênh: <strong style="color:#3B82F6;">${c.platform.toUpperCase()}</strong> · N.Sách: ${fmt.currency(c.budget)}</div>
                       </div>
                       <div style="text-align:right;">
-                        <strong style="color:#10B981; font-size:0.85rem;">${c.leadsGenerated || 0} leads</strong>
+                        <strong style="color:#10B981; font-size:0.85rem;">${c.leadsGenerated || 0} khách hàng</strong>
                         <div style="font-size:0.68rem; color:#F59E0B; margin-top:2px;">Đã chi: ${fmt.currency(c.spent)}</div>
                       </div>
                     </div>
@@ -1065,7 +1065,7 @@ export const UI = {
             <div class="section-card" style="margin-bottom:0;">
               <div class="section-header">
                 <i class="fas fa-filter" style="color:var(--primary);"></i>
-                <span>Pipeline Leads</span>
+                <span>Quy Trình Khách Hàng</span>
                 <button class="btn-link" id="dash-go-leads">Xem tất cả →</button>
               </div>
               <div style="display:flex; flex-direction:column; gap:7px; margin-top:10px;">
@@ -1217,8 +1217,8 @@ export const UI = {
       <div style="display:flex; flex-direction:column; gap:16px;">
         <div style="background:rgba(197,168,128,0.08); border:1px solid rgba(197,168,128,0.3); border-radius:12px; padding:12px 14px; display:flex; justify-content:space-between; align-items:center;">
           <div>
-            <div style="font-size:0.75rem; color:var(--text-muted);">Tổng Số Khách Hàng (Leads)</div>
-            <div style="font-size:1.6rem; font-weight:800; color:var(--primary);">${total} Leads</div>
+            <div style="font-size:0.75rem; color:var(--text-muted);">Tổng Số Khách Hàng</div>
+            <div style="font-size:1.6rem; font-weight:800; color:var(--primary);">${total} Khách Hàng</div>
           </div>
           <div style="font-size:2rem; color:var(--primary); opacity:0.4;"><i class="fas fa-user-friends"></i></div>
         </div>
@@ -1233,7 +1233,7 @@ export const UI = {
               <div>
                 <div style="display:flex; justify-content:space-between; font-size:0.75rem; margin-bottom:4px;">
                   <span><i class="fab ${s.icon}" style="color:var(--primary); width:16px;"></i> <strong>${s.label}</strong></span>
-                  <span style="font-weight:700; color:var(--primary);">${s.count} lead (${s.pct}%)</span>
+                  <span style="font-weight:700; color:var(--primary);">${s.count} khách (${s.pct}%)</span>
                 </div>
                 <div style="height:8px; background:rgba(255,255,255,0.05); border-radius:4px; overflow:hidden;">
                   <div style="height:100%; width:${s.pct}%; background:linear-gradient(90deg, var(--primary), #E6CA9E); border-radius:4px;"></div>
@@ -1246,7 +1246,7 @@ export const UI = {
         <!-- Phân bổ theo Sale -->
         <div>
           <div style="font-size:0.82rem; font-weight:700; color:var(--text-primary); margin-bottom:8px;">
-            👤 Phân Bổ Leads Theo Nhân Sự Phụ Trách
+            👤 Phân Bổ Khách Hàng Theo Nhân Sự Phụ Trách
           </div>
           <div style="display:flex; flex-direction:column; gap:8px; background:rgba(255,255,255,0.02); border:1px solid var(--border-color); border-radius:12px; padding:12px;">
             ${byAssignee.length === 0 ? `<div style="font-size:0.75rem; color:var(--text-muted); text-align:center;">Chưa có phân công</div>` :
@@ -1254,7 +1254,7 @@ export const UI = {
                 <div>
                   <div style="display:flex; justify-content:space-between; font-size:0.75rem; margin-bottom:4px;">
                     <span><strong>${a.name}</strong> <span style="font-size:0.65rem; color:var(--text-muted);">(${roleLabel(a.role)})</span></span>
-                    <span style="font-weight:700; color:#3B82F6;">${a.count} lead (${a.pct}%)</span>
+                    <span style="font-weight:700; color:#3B82F6;">${a.count} khách (${a.pct}%)</span>
                   </div>
                   <div style="height:8px; background:rgba(255,255,255,0.05); border-radius:4px; overflow:hidden;">
                     <div style="height:100%; width:${a.pct}%; background:linear-gradient(90deg, #3B82F6, #60A5FA); border-radius:4px;"></div>
@@ -1267,7 +1267,7 @@ export const UI = {
       </div>
     `;
 
-    Modal.create('Biểu Đồ & Phân Tích Tổng Leads', html);
+    Modal.create('Biểu Đồ & Phân Tích Tổng Khách Hàng', html);
   },
 
   openWinRateChartModal(user) {
@@ -1633,7 +1633,7 @@ export const UI = {
     body.innerHTML = `
       <div class="page-content fade-in">
         <div class="page-title-row" style="margin-bottom:12px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
-          <h2 class="page-title" style="margin:0;"><i class="fas fa-user-friends"></i> Leads CRM</h2>
+          <h2 class="page-title" style="margin:0;"><i class="fas fa-user-friends"></i> Khách Hàng CRM</h2>
           <button class="btn-primary btn-sm" id="btn-new-lead" style="white-space:nowrap; padding:7px 12px; font-size:0.75rem; flex-shrink:0;"><i class="fas fa-plus"></i> Thêm Khách Mới</button>
         </div>
 
@@ -1645,12 +1645,12 @@ export const UI = {
           </div>
           <select id="leads-assignee-filter" class="form-select" style="font-size:0.78rem; font-weight:700; border-color:var(--primary); padding:8px 10px; width:100%; border-radius:8px;">
             ${user.role === 'sales' ? `
-              <option value="my_leads" ${filterAssignee === 'my_leads' ? 'selected' : ''}>⭐ Leads Của Tôi (${leads.filter(l => l.assignedTo === user.id).length})</option>
-              <option value="unassigned" ${filterAssignee === 'unassigned' ? 'selected' : ''}>❓ Leads Chưa Ai Nhận (${leads.filter(l => !l.assignedTo).length})</option>
+              <option value="my_leads" ${filterAssignee === 'my_leads' ? 'selected' : ''}>⭐ Khách Hàng Của Tôi (${leads.filter(l => l.assignedTo === user.id).length})</option>
+              <option value="unassigned" ${filterAssignee === 'unassigned' ? 'selected' : ''}>❓ Khách Hàng Chưa Ai Nhận (${leads.filter(l => !l.assignedTo).length})</option>
             ` : `
               <option value="all" ${filterAssignee === 'all' ? 'selected' : ''}>🌐 Tất Cả Khách Hàng (${leads.length})</option>
-              <option value="my_leads" ${filterAssignee === 'my_leads' ? 'selected' : ''}>⭐ Leads Của Tôi (${user.name.split(' ').pop()}) (${leads.filter(l => l.assignedTo === user.id).length})</option>
-              <option value="unassigned" ${filterAssignee === 'unassigned' ? 'selected' : ''}>❓ Leads Chưa Ai Nhận (${leads.filter(l => !l.assignedTo).length})</option>
+              <option value="my_leads" ${filterAssignee === 'my_leads' ? 'selected' : ''}>⭐ Khách Hàng Của Tôi (${user.name.split(' ').pop()}) (${leads.filter(l => l.assignedTo === user.id).length})</option>
+              <option value="unassigned" ${filterAssignee === 'unassigned' ? 'selected' : ''}>❓ Khách Hàng Chưa Ai Nhận (${leads.filter(l => !l.assignedTo).length})</option>
               <optgroup label="Từng Nhân Sự Sale">
                 ${assignableUsers.map(u => `<option value="${u.id}" ${filterAssignee === u.id ? 'selected' : ''}>👤 ${u.name} (${roleLabel(u.role)}) (${leads.filter(l => l.assignedTo === u.id).length})</option>`).join('')}
               </optgroup>
@@ -1669,7 +1669,7 @@ export const UI = {
 
         <!-- Leads List -->
         <div id="leads-list" style="display:flex; flex-direction:column; gap:10px; margin-top:4px;">
-          ${filtered.length === 0 ? `<div class="empty-state"><i class="fas fa-user-slash"></i><p>Chưa có lead nào thuộc bộ lọc này.</p></div>` :
+          ${filtered.length === 0 ? `<div class="empty-state"><i class="fas fa-user-slash"></i><p>Chưa có khách hàng nào thuộc bộ lọc này.</p></div>` :
         filtered.map(l => this._buildLeadCard(l, user)).join('')
       }
         </div>
@@ -1860,6 +1860,15 @@ export const UI = {
           ${lead.note ? `<div style="margin-top:10px; font-size:0.78rem; color:var(--text-secondary); background:rgba(255,255,255,0.03); border-radius:8px; padding:8px; border:1px solid var(--border-color);"><i class="fas fa-sticky-note" style="color:var(--primary);"></i> ${lead.note}</div>` : ''}
         </div>
 
+        ${(lead.styleImages && lead.styleImages.length > 0) ? `
+          <div style="background:rgba(59,130,246,0.04); border:1px solid rgba(59,130,246,0.2); border-radius:12px; padding:12px;">
+            <div style="font-size:0.74rem; font-weight:800; color:#3B82F6; margin-bottom:8px;"><i class="fas fa-images"></i> Phong Cách Khách Hàng Tham Khảo (${lead.styleImages.length})</div>
+            <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(110px, 1fr)); gap:8px;">
+              ${lead.styleImages.map((src, index) => `<button type="button" class="lead-style-image" data-index="${index}" style="border:1px solid var(--border-color); padding:0; border-radius:9px; overflow:hidden; aspect-ratio:4/3; cursor:zoom-in; background:var(--bg-secondary);"><img src="${src}" alt="Phong cách tham khảo ${index + 1}" style="width:100%; height:100%; object-fit:cover;"></button>`).join('')}
+            </div>
+          </div>
+        ` : ''}
+
         <!-- Design Revisions Loop Timeline -->
         ${(lead.revisions && lead.revisions.length > 0) ? `
           <div style="background:rgba(236,72,153,0.06); border:1px solid rgba(236,72,153,0.25); border-radius:10px; padding:10px;">
@@ -2028,6 +2037,11 @@ export const UI = {
 
     const modal = Modal.create('Chi Tiết Khách Hàng', html);
 
+    document.querySelectorAll('.lead-style-image').forEach(btn => btn.addEventListener('click', () => {
+      const src = lead.styleImages?.[Number(btn.getAttribute('data-index'))];
+      if (src) showPhotoLightbox(src);
+    }));
+
     document.getElementById('drawer-toggle-history')?.addEventListener('click', (e) => {
       const button = e.currentTarget;
       const content = document.getElementById('drawer-history-content');
@@ -2046,7 +2060,7 @@ export const UI = {
         const newAssigneeId = e.target.value;
         const newAssignee = DB.getUserById(newAssigneeId);
         DB.updateLead(leadId, { assignedTo: newAssigneeId }, user.id);
-        Toast.success(newAssignee ? `Đã phân công lead cho ${newAssignee.name}!` : 'Đã đưa lead về chưa phân công.');
+        Toast.success(newAssignee ? `Đã phân công khách hàng cho ${newAssignee.name}!` : 'Đã đưa khách hàng về chưa phân công.');
         modal.close();
         this.renderLeads(user);
       });
@@ -2301,6 +2315,7 @@ export const UI = {
     const assignableUsers = DB.getUsers().filter(u => u.role === 'sales' || u.role === 'manager' || u.role === 'marketing');
     const defaultAssignee = lead?.assignedTo || (user.role === 'sales' ? user.id : '');
     const activeCampaigns = DB.getCampaigns();
+    let styleImages = Array.isArray(lead?.styleImages) ? [...lead.styleImages] : [];
 
     const html = `
       <form id="lead-form" style="display:flex; flex-direction:column; gap:14px;">
@@ -2361,12 +2376,48 @@ export const UI = {
             <label class="form-label">Ghi Chú Nhanh / Yêu Cầu Thiết Kế</label>
             <textarea id="lf-note" class="form-textarea" style="height:70px;">${lead?.note || ''}</textarea>
           </div>
+          <div style="grid-column:span 2; background:rgba(59,130,246,0.05); border:1px dashed rgba(59,130,246,0.3); border-radius:10px; padding:11px;">
+            <label class="form-label"><i class="fas fa-images" style="color:#3B82F6;"></i> Hình Ảnh Phong Cách Tham Khảo <span style="font-weight:500; color:var(--text-muted);">(Không bắt buộc)</span></label>
+            <input type="file" id="lf-style-images" accept="image/*" multiple style="display:none;">
+            <button type="button" id="btn-upload-lead-style" class="btn-secondary" style="padding:8px 12px; font-size:0.76rem; cursor:pointer;"><i class="fas fa-camera"></i> Thêm Hình Ảnh</button>
+            <div style="font-size:0.68rem; color:var(--text-muted); margin-top:5px;">Tối đa 4 ảnh. Hệ thống sẽ tự nén ảnh trước khi lưu.</div>
+            <div id="lf-style-images-preview" style="display:grid; grid-template-columns:repeat(auto-fill, minmax(90px, 1fr)); gap:8px; margin-top:9px;"></div>
+          </div>
         </div>
-        <button type="submit" class="btn-primary">${isEdit ? 'Lưu Thay Đổi' : 'Thêm Lead Mới'}</button>
+        <button type="submit" class="btn-primary">${isEdit ? 'Lưu Thay Đổi' : 'Thêm Khách Hàng Mới'}</button>
       </form>
     `;
 
-    const modal = Modal.create(isEdit ? 'Chỉnh Sửa Lead' : 'Thêm Lead Mới', html);
+    const modal = Modal.create(isEdit ? 'Chỉnh Sửa Khách Hàng' : 'Thêm Khách Hàng Mới', html);
+
+    const renderStyleImages = () => {
+      const preview = document.getElementById('lf-style-images-preview');
+      if (!preview) return;
+      preview.innerHTML = styleImages.map((src, index) => `<div style="position:relative; aspect-ratio:1; border-radius:8px; overflow:hidden; border:1px solid var(--border-color);"><img src="${src}" style="width:100%; height:100%; object-fit:cover;"><button type="button" class="lf-remove-style-image" data-index="${index}" title="Xóa ảnh" style="position:absolute; top:4px; right:4px; width:24px; height:24px; border:none; border-radius:50%; background:rgba(239,68,68,0.9); color:white; cursor:pointer;"><i class="fas fa-times"></i></button></div>`).join('');
+      preview.querySelectorAll('.lf-remove-style-image').forEach(btn => btn.addEventListener('click', () => {
+        styleImages.splice(Number(btn.getAttribute('data-index')), 1);
+        renderStyleImages();
+      }));
+    };
+    renderStyleImages();
+    const styleFileInput = document.getElementById('lf-style-images');
+    document.getElementById('btn-upload-lead-style')?.addEventListener('click', () => styleFileInput.click());
+    styleFileInput?.addEventListener('change', async (e) => {
+      const remaining = Math.max(0, 4 - styleImages.length);
+      const files = [...(e.target.files || [])].slice(0, remaining);
+      if (files.length === 0) {
+        Toast.info('Bạn chỉ có thể lưu tối đa 4 ảnh phong cách.');
+        return;
+      }
+      Toast.info('Đang xử lý hình ảnh...');
+      for (const file of files) {
+        try { styleImages.push(await compressImage(file, 1000, 0.72)); }
+        catch { Toast.error(`Không thể xử lý ảnh ${file.name}.`); }
+      }
+      e.target.value = '';
+      renderStyleImages();
+      Toast.success('Đã thêm hình ảnh phong cách.');
+    });
 
     document.getElementById('lf-stage')?.addEventListener('change', (e) => {
       const wrap = document.getElementById('lf-fail-reason-wrap');
@@ -2411,6 +2462,7 @@ export const UI = {
         address: document.getElementById('lf-address').value,
         assignedTo: document.getElementById('lf-assignee').value,
         note: document.getElementById('lf-note').value,
+        styleImages,
         failReason: stageVal === 'lost' ? (document.getElementById('lf-fail-reason')?.value || '') : ''
       };
       if (isEdit) {
@@ -2426,11 +2478,11 @@ export const UI = {
           Toast.success('Đã gửi yêu cầu sửa thông tin tới Quản lý để duyệt!');
         } else {
           DB.updateLead(leadId, data, user.id);
-          Toast.success('Đã cập nhật thông tin lead.');
+          Toast.success('Đã cập nhật thông tin khách hàng.');
         }
       } else {
         DB.createLead(data, user.id);
-        Toast.success('Đã thêm lead mới.');
+        Toast.success('Đã thêm khách hàng mới.');
       }
       modal.close();
       if (onSave) onSave();
@@ -2937,7 +2989,7 @@ export const UI = {
           <!-- Section: Lead Selection -->
           <div style="background:rgba(197,168,128,0.06); border:1px solid rgba(197,168,128,0.25); border-radius:12px; padding:12px;">
             <label class="form-label" style="color:var(--primary); font-weight:700; font-size:0.85rem; margin-bottom:6px;">
-              <i class="fas fa-trophy"></i> 1. Chọn Khách Hàng Từ CRM <span style="font-size:0.72rem; color:#10B981; font-weight:600;">(Lead đã Chốt HĐ ✅)</span>
+              <i class="fas fa-trophy"></i> 1. Chọn Khách Hàng Từ CRM <span style="font-size:0.72rem; color:#10B981; font-weight:600;">(Khách đã Chốt HĐ ✅)</span>
             </label>
             <select id="cf-lead-select" class="form-select" style="border-color:var(--primary);">
               <option value="">-- Bấm để chọn khách hàng --</option>
@@ -3353,8 +3405,8 @@ export const UI = {
             <div style="font-size:0.72rem; color:#EF4444; margin-top:2px;">Chi: ${fmt.currency(totalSpent)}</div>
           </div>
           <div style="background:var(--bg-secondary); border:1px solid var(--border-color); border-radius:12px; padding:10px;">
-            <div style="font-size:0.62rem; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.4px; margin-bottom:3px;">Leads / CPL</div>
-            <div style="font-size:0.82rem; font-weight:700; color:#10B981;">${totalLeads} leads</div>
+            <div style="font-size:0.62rem; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.4px; margin-bottom:3px;">Khách Hàng / CPL</div>
+            <div style="font-size:0.82rem; font-weight:700; color:#10B981;">${totalLeads} khách hàng</div>
             <div style="font-size:0.72rem; color:var(--primary); margin-top:2px;">CPL: ${fmt.currency(avgCPL)}</div>
           </div>
         </div>
@@ -3378,7 +3430,7 @@ export const UI = {
                   <span style="font-size:0.78rem; color:var(--text-secondary);">${platform.label}</span>
                 </div>
                 <div style="text-align:right;">
-                  <div style="font-size:0.75rem; font-weight:700; color:${platform.color};">${platLeads} leads</div>
+                  <div style="font-size:0.75rem; font-weight:700; color:${platform.color};">${platLeads} khách hàng</div>
                   <div style="font-size:0.65rem; color:var(--text-muted);">CPL: ${fmt.currency(platCPL)}</div>
                 </div>
               </div>
@@ -3450,7 +3502,7 @@ export const UI = {
         <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:6px; margin-bottom:8px; font-size:0.72rem; text-align:center;">
           <div style="background:rgba(255,255,255,0.03); border-radius:8px; padding:6px;"><div style="color:var(--text-muted);">Ngân sách</div><div style="font-weight:700; color:var(--primary);">${fmt.currency(c.budget)}</div></div>
           <div style="background:rgba(255,255,255,0.03); border-radius:8px; padding:6px;"><div style="color:var(--text-muted);">Đã chi</div><div style="font-weight:700; color:#EF4444;">${fmt.currency(c.spent)}</div></div>
-          <div style="background:rgba(255,255,255,0.03); border-radius:8px; padding:5px;"><div style="color:var(--text-muted);">Leads</div><div style="font-weight:700; color:#10B981;">${c.leadsGenerated}</div></div>
+          <div style="background:rgba(255,255,255,0.03); border-radius:8px; padding:5px;"><div style="color:var(--text-muted);">Khách Hàng</div><div style="font-weight:700; color:#10B981;">${c.leadsGenerated}</div></div>
         </div>
         <div style="height:4px; background:rgba(255,255,255,0.06); border-radius:2px; overflow:hidden; margin-bottom:8px;">
           <div style="height:4px; width:${spentPct}%; background:${spentPct >= 90 ? '#EF4444' : platform.color}; border-radius:2px;"></div>
@@ -3488,8 +3540,8 @@ export const UI = {
           <div><label class="form-label">Đã Chi (VNĐ)</label><input type="text" inputmode="numeric" id="cf2-spent" class="form-input" value="${initialSpent}" placeholder="Ví dụ: 15.000.000"></div>
           <div><label class="form-label">Trạng Thái</label><select id="cf2-status" class="form-select"><option value="active" ${c?.status === 'active' ? 'selected' : ''}>Đang chạy</option><option value="paused" ${c?.status === 'paused' ? 'selected' : ''}>Tạm dừng</option><option value="completed" ${c?.status === 'completed' ? 'selected' : ''}>Kết thúc</option></select></div>
           <div style="grid-column:span 2; background:rgba(59,130,246,0.08); border:1px solid rgba(59,130,246,0.3); border-radius:10px; padding:10px; font-size:0.75rem; color:#3B82F6;">
-            <i class="fas fa-magic"></i> <strong>Số Leads Tự Động Thống Kê:</strong> <strong style="font-size:0.9rem; color:#10B981;">${c?.leadsGenerated || 0} Leads</strong>
-            <div style="font-size:0.68rem; color:var(--text-muted); margin-top:2px;">(Số Leads được hệ thống đếm tự động khi bạn thêm khách hàng mới và gắn với chiến dịch này)</div>
+            <i class="fas fa-magic"></i> <strong>Số Khách Hàng Tự Động Thống Kê:</strong> <strong style="font-size:0.9rem; color:#10B981;">${c?.leadsGenerated || 0} Khách Hàng</strong>
+            <div style="font-size:0.68rem; color:var(--text-muted); margin-top:2px;">(Số khách hàng được hệ thống đếm tự động khi bạn thêm khách hàng mới và gắn với chiến dịch này)</div>
           </div>
         </div>
         <div><label class="form-label">Ghi Chú</label><textarea id="cf2-note" class="form-textarea" style="height:60px;">${c?.note || ''}</textarea></div>
@@ -3569,11 +3621,11 @@ export const UI = {
               <div style="font-weight:800; font-size:0.88rem; color:#EF4444;">${fmt.currency(totalSpent)}</div>
             </div>
             <div style="background:rgba(16,185,129,0.06); border-radius:10px; padding:8px 10px; border:1px solid rgba(16,185,129,0.25);">
-              <div style="font-size:0.65rem; color:#10B981; font-weight:600;">Số Leads Tự Động Thống Kê</div>
-              <div style="font-weight:800; font-size:0.88rem; color:#10B981;">${leadsCount} Leads</div>
+              <div style="font-size:0.65rem; color:#10B981; font-weight:600;">Số Khách Hàng Tự Động Thống Kê</div>
+              <div style="font-weight:800; font-size:0.88rem; color:#10B981;">${leadsCount} Khách Hàng</div>
             </div>
             <div style="background:rgba(59,130,246,0.06); border-radius:10px; padding:8px 10px; border:1px solid rgba(59,130,246,0.25);">
-              <div style="font-size:0.65rem; color:#3B82F6; font-weight:600;">Chi Phí / Lead (CPL)</div>
+              <div style="font-size:0.65rem; color:#3B82F6; font-weight:600;">Chi Phí / Khách Hàng (CPL)</div>
               <div style="font-weight:800; font-size:0.88rem; color:#3B82F6;">${fmt.currency(cpl)}</div>
             </div>
           </div>
@@ -3627,13 +3679,13 @@ export const UI = {
         <!-- Section 2: Linked Leads List -->
         <div style="background:rgba(255,255,255,0.02); border:1px solid var(--border-color); border-radius:12px; padding:12px;">
           <div style="font-size:0.82rem; font-weight:700; color:var(--text-primary); margin-bottom:8px; display:flex; justify-content:space-between; align-items:center;">
-            <span>👥 Danh Sách Leads Từ Chiến Dịch Này (${linkedLeads.length})</span>
+            <span>👥 Danh Sách Khách Hàng Từ Chiến Dịch Này (${linkedLeads.length})</span>
             <span style="font-size:0.68rem; color:#10B981; font-weight:700;">Tự Động Đếm</span>
           </div>
           ${linkedLeads.length === 0 ? `
             <div class="empty-state" style="padding:14px;">
               <i class="fas fa-user-plus"></i>
-              <p style="font-size:0.75rem;">Chưa có Lead nào gắn với chiến dịch này.<br>Hãy chọn chiến dịch này ở ô Nguồn Quảng Cáo khi tạo Khách Hàng Mới.</p>
+              <p style="font-size:0.75rem;">Chưa có khách hàng nào gắn với chiến dịch này.<br>Hãy chọn chiến dịch này ở ô Nguồn Quảng Cáo khi tạo Khách Hàng Mới.</p>
             </div>
           ` : `
             <div style="display:flex; flex-direction:column; gap:6px; max-height:220px; overflow-y:auto;">
@@ -3923,10 +3975,10 @@ export const UI = {
           </div>
           ${lead ? `
             <div style="grid-column:span 2; background:rgba(0,0,0,0.18); padding:8px 10px; border-radius:8px; border:1px solid var(--border-color);">
-              <span style="color:var(--text-muted); font-size:0.7rem;">Thông tin Khách Hàng (Lead)</span>
+              <span style="color:var(--text-muted); font-size:0.7rem;">Thông Tin Khách Hàng</span>
               <div style="font-weight:600; font-size:0.78rem; display:flex; align-items:center; justify-content:space-between; gap:8px; margin-top:2px;">
                 <span>📞 ${lead.phone || 'Chưa có SĐT'} ${lead.address ? `· 📍 ${lead.address}` : ''}</span>
-                <button id="btn-goto-lead" style="background:rgba(197,168,128,0.15); border:1px solid rgba(197,168,128,0.3); color:var(--primary); font-size:0.7rem; font-weight:600; padding:3px 8px; border-radius:6px; cursor:pointer; flex-shrink:0;"><i class="fas fa-external-link-alt"></i> Xem Lead</button>
+                <button id="btn-goto-lead" style="background:rgba(197,168,128,0.15); border:1px solid rgba(197,168,128,0.3); color:var(--primary); font-size:0.7rem; font-weight:600; padding:3px 8px; border-radius:6px; cursor:pointer; flex-shrink:0;"><i class="fas fa-external-link-alt"></i> Xem Khách Hàng</button>
               </div>
             </div>
           ` : ''}
@@ -4016,9 +4068,9 @@ export const UI = {
       <form id="apt-form" style="display:flex; flex-direction:column; gap:12px;">
         <div><label class="form-label">Tiêu Đề Lịch Hẹn *</label><input type="text" id="af-title" class="form-input" value="${defaultTitle}" placeholder="Ví dụ: Gặp trực tiếp ký hợp đồng" required></div>
         <div>
-          <label class="form-label">Khách Hàng (Lead)</label>
+          <label class="form-label">Khách Hàng</label>
           <select id="af-lead" class="form-select">
-            <option value="">-- Không gắn với lead nào --</option>
+            <option value="">-- Không gắn với khách hàng nào --</option>
             ${leads.map(l => {
               const isWon = l.stage === 'won';
               return `<option value="${l.id}" data-name="${l.name}" ${selectedLeadId === l.id ? 'selected' : ''}>${l.name} (${l.phone || '—'})${isWon ? ' [Chốt Hợp Đồng ✅]' : ''}</option>`;
@@ -4237,7 +4289,7 @@ export const UI = {
 
         <!-- Main KPI -->
         <div class="kpi-grid">
-          <div class="kpi-card"><div class="kpi-icon" style="background:rgba(197,168,128,0.15);color:var(--primary);"><i class="fas fa-user-friends"></i></div><div class="kpi-body"><div class="kpi-val">${analytics.totalLeads}</div><div class="kpi-label">Tổng Leads</div><div class="kpi-sub">+${analytics.leadsThisMonth} tháng này</div></div></div>
+          <div class="kpi-card"><div class="kpi-icon" style="background:rgba(197,168,128,0.15);color:var(--primary);"><i class="fas fa-user-friends"></i></div><div class="kpi-body"><div class="kpi-val">${analytics.totalLeads}</div><div class="kpi-label">Tổng Khách Hàng</div><div class="kpi-sub">+${analytics.leadsThisMonth} tháng này</div></div></div>
           <div class="kpi-card"><div class="kpi-icon" style="background:rgba(16,185,129,0.15);color:#10B981;"><i class="fas fa-trophy"></i></div><div class="kpi-body"><div class="kpi-val" style="color:#10B981;">${analytics.winRate}%</div><div class="kpi-label">Tỷ Lệ Chốt</div><div class="kpi-sub">${analytics.wonLeads}W / ${analytics.lostLeads}L</div></div></div>
           <div class="kpi-card"><div class="kpi-icon" style="background:rgba(59,130,246,0.15);color:#3B82F6;"><i class="fas fa-money-bill-wave"></i></div><div class="kpi-body"><div class="kpi-val" style="font-size:1.1rem; color:#3B82F6;">${fmt.currency(analytics.revenueThisMonth)}</div><div class="kpi-label">Doanh Thu Tháng</div><div class="kpi-sub">Tổng: ${fmt.currency(analytics.totalRevenue)}</div></div></div>
           <div class="kpi-card"><div class="kpi-icon" style="background:rgba(245,158,11,0.15);color:#F59E0B;"><i class="fas fa-ad"></i></div><div class="kpi-body"><div class="kpi-val" style="color:#F59E0B;">${fmt.currency(analytics.avgCPL)}</div><div class="kpi-label">CPL Trung Bình</div><div class="kpi-sub">${analytics.activeCampaigns} chiến dịch active</div></div></div>
@@ -4245,7 +4297,7 @@ export const UI = {
 
         <!-- Pipeline -->
         <div class="section-card">
-          <div class="section-header"><i class="fas fa-filter" style="color:var(--primary);"></i><span>Phân Bổ Leads Theo Giai Đoạn</span></div>
+          <div class="section-header"><i class="fas fa-filter" style="color:var(--primary);"></i><span>Phân Bổ Khách Hàng Theo Giai Đoạn</span></div>
           <div style="display:flex; flex-direction:column; gap:8px; margin-top:10px;">
             ${LEAD_STAGES.map(s => {
       const count = analytics.leadsByStage[s.id] || 0;
@@ -4267,7 +4319,7 @@ export const UI = {
         <!-- Source Analysis -->
         ${sourceData.length > 0 ? `
         <div class="section-card">
-          <div class="section-header"><i class="fas fa-chart-pie" style="color:var(--primary);"></i><span>Nguồn Leads Hiệu Quả Nhất</span></div>
+          <div class="section-header"><i class="fas fa-chart-pie" style="color:var(--primary);"></i><span>Nguồn Khách Hàng Hiệu Quả Nhất</span></div>
           <div style="display:flex; flex-direction:column; gap:8px; margin-top:10px;">
             ${sourceData.map(s => {
       const pct = Math.round(s.count / maxSourceCount * 100);
@@ -4277,7 +4329,7 @@ export const UI = {
                 <div>
                   <div style="display:flex; justify-content:space-between; font-size:0.74rem; margin-bottom:4px;">
                     <span style="color:var(--text-secondary);"><i class="fas ${s.icon}" style="color:var(--primary); margin-right:5px;"></i>${s.label}</span>
-                    <span style="color:var(--primary); font-weight:700;">${s.count} leads · Chốt ${srcWinRate}%</span>
+                    <span style="color:var(--primary); font-weight:700;">${s.count} khách hàng · Chốt ${srcWinRate}%</span>
                   </div>
                   <div style="height:6px; background:rgba(255,255,255,0.06); border-radius:3px; overflow:hidden;">
                     <div style="height:6px; width:${pct}%; background:linear-gradient(90deg, var(--primary), #C5A880); border-radius:3px;"></div>
@@ -4299,7 +4351,7 @@ export const UI = {
               <div style="font-size:0.85rem; font-weight:700; color:#EF4444;">${fmt.currency(analytics.totalCampaignSpent)}</div>
             </div>
             <div style="background:rgba(255,255,255,0.03); border-radius:10px; padding:10px; border:1px solid var(--border-color);">
-              <div style="font-size:0.62rem; color:var(--text-muted); margin-bottom:4px;">Leads từ MKT</div>
+              <div style="font-size:0.62rem; color:var(--text-muted); margin-bottom:4px;">Khách Hàng từ MKT</div>
               <div style="font-size:0.85rem; font-weight:700; color:#10B981;">${analytics.totalLeadsFromCampaigns}</div>
             </div>
             <div style="background:rgba(255,255,255,0.03); border-radius:10px; padding:10px; border:1px solid var(--border-color);">
@@ -4761,7 +4813,7 @@ export const UI = {
     const html = `
       <form id="assign-kts-task-form" style="display:flex; flex-direction:column; gap:14px;">
         <div style="background:rgba(139,92,246,0.1); border:1px solid rgba(139,92,246,0.3); padding:10px 14px; border-radius:10px; font-size:0.82rem;">
-          <div style="font-weight:700; color:#8B5CF6;"><i class="fas fa-building"></i> Công trình / Lead: ${lead.name}</div>
+          <div style="font-weight:700; color:#8B5CF6;"><i class="fas fa-building"></i> Công trình / Khách hàng: ${lead.name}</div>
           <div style="color:var(--text-secondary); font-size:0.75rem; margin-top:2px;">${lead.interestedIn || 'Nội thất'} ${lead.address ? `· ${lead.address}` : ''}</div>
         </div>
 
@@ -4820,7 +4872,7 @@ export const UI = {
 
         <div class="form-group">
           <label class="form-label">${isSurveyStageFlow ? 'Ghi Chú Khảo Sát' : 'Chi Tiết Yêu Cầu Cho KTS'}</label>
-          <textarea id="kts-assign-req" class="form-textarea" rows="3" placeholder="Mô tả cụ thể kích thước, màu sắc, vật liệu hoặc yêu cầu từ khách...">${isEdit ? (editTask.requirement || '') : (lead.note ? `Ghi chú từ Lead: ${lead.note}` : '')}</textarea>
+          <textarea id="kts-assign-req" class="form-textarea" rows="3" placeholder="Mô tả cụ thể kích thước, màu sắc, vật liệu hoặc yêu cầu từ khách...">${isEdit ? (editTask.requirement || '') : (lead.note ? `Ghi chú từ khách hàng: ${lead.note}` : '')}</textarea>
         </div>
 
         <div style="display:flex; gap:10px; justify-content:flex-end; margin-top:10px;">
@@ -4941,7 +4993,7 @@ export const UI = {
             <h3 style="color:var(--text-primary); margin-bottom:8px; font-size:1.15rem; font-weight:800;">Đã Giao Việc Thành Công!</h3>
             <div style="background:rgba(255,255,255,0.03); border:1px solid var(--border-color); border-radius:10px; padding:12px; margin-bottom:16px; text-align:left; font-size:0.82rem;">
               <div style="font-weight:700; color:var(--primary); margin-bottom:4px;"><i class="fas fa-tasks"></i> ${title}</div>
-              <div style="color:var(--text-secondary); margin-bottom:2px;"><i class="fas fa-building"></i> Lead: <strong>${lead.name}</strong></div>
+              <div style="color:var(--text-secondary); margin-bottom:2px;"><i class="fas fa-building"></i> Khách hàng: <strong>${lead.name}</strong></div>
               <div style="color:var(--text-secondary); margin-bottom:2px;"><i class="fas fa-user-tag"></i> ${isSurvey ? 'Người đi khảo sát' : 'KTS nhận việc'}: <strong style="color:#8B5CF6;">${ktsUser.name}${isExternal ? ' · Ngoài hệ thống' : ''}</strong></div>
               <div style="color:#F59E0B; font-weight:700; margin-top:8px; display:flex; align-items:center; gap:7px; flex-wrap:wrap;"><span>Hạn hoàn thành:</span> ${fmt.datetimeBadges(deadline)}</div>
             </div>
@@ -5091,7 +5143,7 @@ export const UI = {
     document.getElementById('btn-kts-task-assign-modal')?.addEventListener('click', () => {
       const leads = DB.getLeads();
       if (leads.length === 0) {
-        Toast.error('Chưa có lead nào để giao việc. Vui lòng tạo Lead trước.');
+        Toast.error('Chưa có khách hàng nào để giao việc. Vui lòng tạo khách hàng trước.');
         return;
       }
       this.openAssignKtsTaskForm(leads[0], user, () => this.renderKtsTasks(user, filterType));
@@ -5154,7 +5206,7 @@ export const UI = {
       <form id="complete-kts-task-form" style="display:flex; flex-direction:column; gap:14px;">
         <div style="background:rgba(16,185,129,0.1); border:1px solid rgba(16,185,129,0.3); padding:10px 14px; border-radius:10px; font-size:0.82rem;">
           <div style="font-weight:700; color:#10B981;"><i class="fas fa-check-circle"></i> ${isSurvey ? 'Hoàn Tất Khảo Sát' : 'Bàn Giao Hoàn Thành'}: ${task.title}</div>
-          <div style="color:var(--text-secondary); font-size:0.75rem; margin-top:2px;">Lead: ${task.leadName} · Người giao: ${task.assignerName}</div>
+          <div style="color:var(--text-secondary); font-size:0.75rem; margin-top:2px;">Khách hàng: ${task.leadName} · Người giao: ${task.assignerName}</div>
         </div>
 
         <div class="form-group">
@@ -5232,7 +5284,7 @@ export const UI = {
 
       DB.addLeadHistory(task.leadId, `${isSurvey ? '📏 Hoàn thành khảo sát' : '✅ Hoàn thành việc KTS'} (${task.title}) · Người thực hiện: ${task.ktsName || user.name}`, user.name);
 
-      Toast.success(isSurvey ? 'Đã hoàn thành khảo sát và lưu kết quả vào Lead!' : 'Đã hoàn thành công việc và tự động cập nhật Báo Cáo KTS!');
+      Toast.success(isSurvey ? 'Đã hoàn thành khảo sát và lưu kết quả vào khách hàng!' : 'Đã hoàn thành công việc và tự động cập nhật Báo Cáo KTS!');
       modal.close();
       if (onSave) onSave();
     });
