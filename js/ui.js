@@ -27,17 +27,43 @@ const parseDateOnly = value => {
   if (date.getFullYear() !== year || date.getMonth() !== month - 1 || date.getDate() !== day) return '';
   return `${year}-${pad2(month)}-${pad2(day)}`;
 };
-const applyDateMask = (input, withTime = false) => {
+const toNativeDateValue = (date, withTime = false) => {
+  if (!(date instanceof Date) || Number.isNaN(date.getTime())) return '';
+  const datePart = `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())}`;
+  return withTime ? `${datePart}T${pad2(date.getHours())}:${pad2(date.getMinutes())}` : datePart;
+};
+const attachNativeDatePicker = (input, withTime = false) => {
   if (!input) return;
-  input.addEventListener('input', () => {
-    const digits = input.value.replace(/\D/g, '').slice(0, withTime ? 12 : 8);
-    const parts = [digits.slice(0, 2), digits.slice(2, 4), digits.slice(4, 8)].filter(Boolean);
-    let formatted = parts.join('/');
-    if (withTime && digits.length > 8) {
-      const timeDigits = digits.slice(8);
-      formatted += ` ${timeDigits.slice(0, 2)}${timeDigits.length > 2 ? `:${timeDigits.slice(2, 4)}` : ''}`;
+  const picker = document.createElement('input');
+  picker.type = withTime ? 'datetime-local' : 'date';
+  picker.tabIndex = -1;
+  picker.setAttribute('aria-hidden', 'true');
+  picker.style.cssText = 'position:fixed;left:-20px;bottom:-20px;width:1px;height:1px;opacity:0;pointer-events:none;';
+  const parsedInitial = withTime
+    ? parseDateTime24(input.value)
+    : (() => { const key = parseDateOnly(input.value); return key ? new Date(`${key}T00:00:00`) : null; })();
+  if (parsedInitial) picker.value = toNativeDateValue(parsedInitial, withTime);
+  input.insertAdjacentElement('afterend', picker);
+  input.readOnly = true;
+  input.style.cursor = 'pointer';
+  input.title = withTime ? 'Bấm để chọn ngày và giờ' : 'Bấm để chọn ngày';
+  const openPicker = () => {
+    if (typeof picker.showPicker === 'function') picker.showPicker();
+    else picker.click();
+  };
+  input.addEventListener('click', openPicker);
+  input.addEventListener('keydown', event => {
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      openPicker();
     }
-    input.value = formatted;
+  });
+  picker.addEventListener('change', () => {
+    if (!picker.value) return;
+    const selected = new Date(withTime ? picker.value : `${picker.value}T00:00:00`);
+    input.value = withTime ? formatDateTime24(selected) : formatDateOnly(selected);
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    input.dispatchEvent(new Event('change', { bubbles: true }));
   });
 };
 
@@ -4141,7 +4167,7 @@ export const UI = {
     `;
 
     const modal = Modal.create(apt ? 'Chỉnh Sửa Lịch Hẹn' : 'Đặt Lịch Hẹn Mới', html);
-    applyDateMask(document.getElementById('af-datetime'), true);
+    attachNativeDatePicker(document.getElementById('af-datetime'), true);
 
     // Live countdown logic
     const updateCountdown = () => {
@@ -4503,7 +4529,7 @@ export const UI = {
         </div>
       </div>`;
 
-    applyDateMask(document.getElementById('kts-daily-date'));
+    attachNativeDatePicker(document.getElementById('kts-daily-date'));
 
     document.getElementById('kts-daily-date')?.addEventListener('change', e => {
       const dateKey = parseDateOnly(e.target.value);
@@ -4945,7 +4971,7 @@ export const UI = {
     `;
 
     const modal = Modal.create(isSurveyStageFlow ? `${isEdit ? '✏️ Sửa' : '📅 Tạo'} Lịch Khảo Sát - ${lead.name}` : `${isEdit ? '✏️ Sửa Công Việc KTS' : '🚀 Giao Việc Cho KTS'} - ${lead.name}`, html);
-    applyDateMask(document.getElementById('kts-assign-deadline'), true);
+    attachNativeDatePicker(document.getElementById('kts-assign-deadline'), true);
 
     document.getElementById('btn-cancel-kts-assign')?.addEventListener('click', () => modal.close());
 
