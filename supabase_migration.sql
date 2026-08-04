@@ -18,6 +18,15 @@ CREATE TABLE IF NOT EXISTS public.kts_tasks (
     assigner_name TEXT,
     kts_id TEXT REFERENCES public.users(id) ON DELETE SET NULL,
     kts_name TEXT,
+    assignee_type TEXT DEFAULT 'internal',
+    external_assignee_name TEXT,
+    external_assignee_phone TEXT,
+    external_assignee_unit TEXT,
+    responsible_user_id TEXT REFERENCES public.users(id) ON DELETE SET NULL,
+    responsible_user_name TEXT,
+    survey_address TEXT,
+    survey_contact_name TEXT,
+    survey_contact_phone TEXT,
     task_type TEXT NOT NULL,
     title TEXT NOT NULL,
     requirement TEXT,
@@ -41,6 +50,15 @@ ALTER TABLE public.kts_tasks ADD COLUMN IF NOT EXISTS result_note TEXT;
 ALTER TABLE public.kts_tasks ADD COLUMN IF NOT EXISTS result_file_link TEXT;
 ALTER TABLE public.kts_tasks ADD COLUMN IF NOT EXISTS result_image TEXT;
 ALTER TABLE public.kts_tasks ADD COLUMN IF NOT EXISTS history JSONB DEFAULT '[]'::jsonb;
+ALTER TABLE public.kts_tasks ADD COLUMN IF NOT EXISTS assignee_type TEXT DEFAULT 'internal';
+ALTER TABLE public.kts_tasks ADD COLUMN IF NOT EXISTS external_assignee_name TEXT;
+ALTER TABLE public.kts_tasks ADD COLUMN IF NOT EXISTS external_assignee_phone TEXT;
+ALTER TABLE public.kts_tasks ADD COLUMN IF NOT EXISTS external_assignee_unit TEXT;
+ALTER TABLE public.kts_tasks ADD COLUMN IF NOT EXISTS responsible_user_id TEXT REFERENCES public.users(id) ON DELETE SET NULL;
+ALTER TABLE public.kts_tasks ADD COLUMN IF NOT EXISTS responsible_user_name TEXT;
+ALTER TABLE public.kts_tasks ADD COLUMN IF NOT EXISTS survey_address TEXT;
+ALTER TABLE public.kts_tasks ADD COLUMN IF NOT EXISTS survey_contact_name TEXT;
+ALTER TABLE public.kts_tasks ADD COLUMN IF NOT EXISTS survey_contact_phone TEXT;
 
 -- 3. Tạo bảng kts_logs (nếu chưa có)
 CREATE TABLE IF NOT EXISTS public.kts_logs (
@@ -78,6 +96,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_lead_history_event_key ON public.lead_hist
 CREATE UNIQUE INDEX IF NOT EXISTS idx_lead_revisions_event_key ON public.lead_revisions(event_key);
 CREATE INDEX IF NOT EXISTS idx_kts_tasks_status_deadline ON public.kts_tasks(status, deadline);
 CREATE INDEX IF NOT EXISTS idx_kts_tasks_kts ON public.kts_tasks(kts_id);
+CREATE INDEX IF NOT EXISTS idx_kts_tasks_responsible ON public.kts_tasks(responsible_user_id);
 CREATE INDEX IF NOT EXISTS idx_kts_logs_user_date ON public.kts_logs(user_id, date);
 CREATE INDEX IF NOT EXISTS idx_notifications_user_status ON public.notifications(user_id, status);
 
@@ -175,7 +194,9 @@ SELECT t.id AS task_id, t.lead_id, t.lead_name, t.task_type, t.title, t.status,
   t.kts_id, t.kts_name, t.assigner_id, t.assigner_name,
   ROUND(EXTRACT(EPOCH FROM (COALESCE(t.completed_at, NOW()) - t.created_at)) / 3600.0, 2) AS elapsed_hours,
   CASE WHEN t.completed_at IS NOT NULL THEN t.completed_at > t.deadline ELSE NOW() > t.deadline END AS is_overdue,
-  t.result_note, t.result_file_link
+  t.result_note, t.result_file_link,
+  t.assignee_type, t.external_assignee_name,
+  t.responsible_user_id, t.responsible_user_name, t.survey_address
 FROM public.kts_tasks t;
 
 GRANT SELECT ON public.vw_lead_pipeline, public.vw_contract_finance,

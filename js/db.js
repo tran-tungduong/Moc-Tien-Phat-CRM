@@ -504,6 +504,15 @@ export const DB = {
           assignerName: t.assigner_name || '',
           ktsId: t.kts_id || '',
           ktsName: t.kts_name || '',
+          assigneeType: t.assignee_type || 'internal',
+          externalAssigneeName: t.external_assignee_name || '',
+          externalAssigneePhone: t.external_assignee_phone || '',
+          externalAssigneeUnit: t.external_assignee_unit || '',
+          responsibleUserId: t.responsible_user_id || t.assigner_id || '',
+          responsibleUserName: t.responsible_user_name || t.assigner_name || '',
+          surveyAddress: t.survey_address || '',
+          surveyContactName: t.survey_contact_name || '',
+          surveyContactPhone: t.survey_contact_phone || '',
           taskType: t.task_type || '',
           title: t.title || '',
           requirement: t.requirement || '',
@@ -822,6 +831,15 @@ export const DB = {
       assigner_name: task.assignerName || null,
       kts_id: task.ktsId || null,
       kts_name: task.ktsName || null,
+      assignee_type: task.assigneeType || 'internal',
+      external_assignee_name: task.externalAssigneeName || null,
+      external_assignee_phone: task.externalAssigneePhone || null,
+      external_assignee_unit: task.externalAssigneeUnit || null,
+      responsible_user_id: task.responsibleUserId || task.assignerId || null,
+      responsible_user_name: task.responsibleUserName || task.assignerName || null,
+      survey_address: task.surveyAddress || null,
+      survey_contact_name: task.surveyContactName || null,
+      survey_contact_phone: task.surveyContactPhone || null,
       task_type: task.taskType || '',
       title: task.title || '',
       requirement: task.requirement || null,
@@ -1707,13 +1725,11 @@ export const DB = {
     const db = this.load();
     const tasks = db.ktsTasks || [];
     if (!userId || role === 'manager') return tasks;
-    if (role === 'kts') {
-      return tasks.filter(t => t.ktsId === userId || t.ktsId === 'usr_long_tran');
-    }
-    if (role === 'sales') {
-      return tasks.filter(t => t.assignerId === userId);
-    }
-    return tasks;
+    return tasks.filter(t =>
+      t.ktsId === userId ||
+      t.assignerId === userId ||
+      t.responsibleUserId === userId
+    );
   },
 
   addKtsTask(taskData) {
@@ -1729,7 +1745,7 @@ export const DB = {
       history: [
         {
           timestamp: now,
-          action: '🚀 Giao việc KTS',
+          action: taskData.taskType === 'site_survey' ? '📏 Giao việc khảo sát' : '🚀 Giao việc KTS',
           user: taskData.assignerName || 'Sale / Admin',
           note: taskData.requirement ? `Yêu cầu: ${taskData.requirement}` : 'Khởi tạo yêu cầu giao việc mới'
         }
@@ -1742,14 +1758,14 @@ export const DB = {
     if (newTask.ktsId) {
       this.addNotification({
         userId: newTask.ktsId,
-        title: '🚀 Yêu cầu công việc KTS mới!',
+        title: newTask.taskType === 'site_survey' ? '📏 Yêu cầu khảo sát mới!' : '🚀 Yêu cầu công việc KTS mới!',
         message: `${newTask.assignerName || 'Sale'} đã giao việc: "${newTask.title}" cho Lead ${newTask.leadName}`,
         type: 'kts_task',
         targetId: newTask.id
       });
     }
 
-    this.addSystemLog(`Giao việc KTS: ${newTask.assignerName} -> ${newTask.ktsName} (${newTask.title})`);
+    this.addSystemLog(`Giao công việc: ${newTask.assignerName} -> ${newTask.ktsName} (${newTask.title})`);
     this._pushKtsTaskToSupabase(newTask);
     return newTask;
   },
@@ -1768,8 +1784,8 @@ export const DB = {
         history.push({
           timestamp: fields.startedAt,
           action: '🔵 Tiếp nhận & Bắt đầu làm',
-          user: oldTask.ktsName || 'KTS',
-          note: 'KTS đã tiếp nhận và chuyển trạng thái sang Đang thực hiện'
+          user: oldTask.ktsName || 'Người thực hiện',
+          note: 'Người thực hiện đã tiếp nhận và chuyển trạng thái sang Đang thực hiện'
         });
       }
 
@@ -1778,7 +1794,7 @@ export const DB = {
         history.push({
           timestamp: fields.completedAt,
           action: '✅ Đã hoàn thành',
-          user: oldTask.ktsName || 'KTS',
+          user: oldTask.ktsName || 'Người thực hiện',
           note: fields.resultNote || fields.completedNote || 'Đã hoàn thành công việc'
         });
       }
@@ -1789,8 +1805,8 @@ export const DB = {
       if (fields.status === 'completed' && oldTask.status !== 'completed' && oldTask.assignerId) {
         this.addNotification({
           userId: oldTask.assignerId,
-          title: '✅ KTS đã hoàn thành công việc!',
-          message: `${oldTask.ktsName || 'KTS'} đã hoàn thành: "${oldTask.title}" (${oldTask.leadName})`,
+          title: oldTask.taskType === 'site_survey' ? '✅ Đã hoàn thành khảo sát!' : '✅ KTS đã hoàn thành công việc!',
+          message: `${oldTask.ktsName || 'Người thực hiện'} đã hoàn thành: "${oldTask.title}" (${oldTask.leadName})`,
           type: 'kts_task_completed',
           targetId: oldTask.id
         });

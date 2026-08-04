@@ -646,7 +646,7 @@ export const UI = {
   _getNavItems(user) {
     const all = [
       { id: 'dashboard', label: 'Tổng Quan', icon: 'fa-home', roles: ['manager', 'sales', 'marketing', 'accountant', 'kts'] },
-      { id: 'kts_tasks', label: 'Công Việc KTS', icon: 'fa-tasks', roles: ['manager', 'kts', 'sales'] },
+      { id: 'kts_tasks', label: 'Công Việc KTS', icon: 'fa-tasks', roles: ['manager', 'kts', 'sales', 'marketing', 'accountant'] },
       { id: 'kts_reports', label: 'Báo Cáo KTS', icon: 'fa-drafting-compass', roles: ['kts'] },
       { id: 'appointments', label: 'Lịch Hẹn', icon: 'fa-calendar-alt', roles: ['manager', 'sales', 'marketing', 'accountant', 'kts'] },
       { id: 'leads', label: 'Leads', icon: 'fa-user-friends', roles: ['manager', 'sales', 'marketing', 'accountant'] },
@@ -4282,6 +4282,7 @@ export const UI = {
     }
 
     const taskTypeMap = {
+      site_survey: { label: '📏 Đi đo khảo sát thực địa', color: '#F97316', bg: 'rgba(249,115,22,0.15)', icon: '📏' },
       fast_support: { label: '⚡ Vẽ phản ứng nhanh (Hỗ trợ Sale)', color: '#8B5CF6', bg: 'rgba(139,92,246,0.15)', icon: '⚡' },
       technical_draw: { label: '📐 Vẽ kết cấu chi tiết', color: '#3B82F6', bg: 'rgba(59,130,246,0.15)', icon: '📐' },
       cnc_export: { label: '🖨️ Ra file CNC', color: '#10B981', bg: 'rgba(16,185,129,0.15)', icon: '🖨️' },
@@ -4588,6 +4589,7 @@ export const UI = {
   // ── KTS Task Assignment & Management ─────────────────
   openAssignKtsTaskForm(lead, user, onSave = null, editTask = null) {
     const isEdit = !!editTask;
+    const allUsers = DB.getUsers();
     const ktsUsers = DB.getUsers().filter(u => u.role === 'kts' || u.id === 'usr_long_tran');
     if (ktsUsers.length === 0) {
       ktsUsers.push({ id: 'usr_long_tran', name: 'Trần Hữu Nhật Long', role: 'kts' });
@@ -4614,16 +4616,26 @@ export const UI = {
         </div>
 
         <div class="form-group">
-          <label class="form-label">Chọn KTS / Người Nhận <span style="color:#EF4444;">*</span></label>
+          <label class="form-label" id="kts-assignee-label">Chọn KTS / Người Nhận <span style="color:#EF4444;">*</span></label>
           <select id="kts-assign-user" class="form-select" required>
             ${ktsUsers.map(u => `<option value="${u.id}" ${(isEdit ? u.id === editTask.ktsId : u.id === 'usr_long_tran') ? 'selected' : ''}>📐 ${u.name} (${roleLabel(u.role)})</option>`).join('')}
           </select>
+        </div>
+
+        <div id="kts-external-assignee-fields" style="display:none; background:rgba(245,158,11,0.08); border:1px solid rgba(245,158,11,0.25); padding:12px; border-radius:10px;">
+          <div class="form-row">
+            <div class="form-group"><label class="form-label">Tên người đi khảo sát <span style="color:#EF4444;">*</span></label><input id="kts-external-name" class="form-input" value="${isEdit ? (editTask.externalAssigneeName || '') : ''}" placeholder="Họ và tên"></div>
+            <div class="form-group"><label class="form-label">Số điện thoại</label><input id="kts-external-phone" class="form-input" value="${isEdit ? (editTask.externalAssigneePhone || '') : ''}" placeholder="Số điện thoại liên hệ"></div>
+          </div>
+          <div class="form-group"><label class="form-label">Đơn vị / Ghi chú nhận diện</label><input id="kts-external-unit" class="form-input" value="${isEdit ? (editTask.externalAssigneeUnit || '') : ''}" placeholder="Ví dụ: Đội thi công, cộng tác viên..."></div>
+          <div style="font-size:0.72rem; color:#F59E0B;">Người giao việc sẽ là người nội bộ chịu trách nhiệm cập nhật tiến độ.</div>
         </div>
 
         <div class="form-row">
           <div class="form-group">
             <label class="form-label">Loại Việc KTS <span style="color:#EF4444;">*</span></label>
             <select id="kts-assign-task-type" class="form-select" required>
+              <option value="site_survey" ${isEdit && editTask.taskType === 'site_survey' ? 'selected' : ''}>📏 Đi đo khảo sát thực địa</option>
               <option value="fast_support" ${isEdit && editTask.taskType === 'fast_support' ? 'selected' : ''}>⚡ Vẽ phản ứng nhanh hỗ trợ Sale tư vấn</option>
               <option value="technical_draw" ${isEdit && editTask.taskType === 'technical_draw' ? 'selected' : ''}>📐 Vẽ kết cấu chi tiết</option>
               <option value="cnc_export" ${isEdit && editTask.taskType === 'cnc_export' ? 'selected' : ''}>🖨️ Xuất file CNC</option>
@@ -4633,6 +4645,14 @@ export const UI = {
           <div class="form-group">
             <label class="form-label">Hạn Hoàn Thành (Deadline) <span style="color:#EF4444;">*</span></label>
             <input type="datetime-local" id="kts-assign-deadline" class="form-input" value="${defaultDeadlineStr}" required>
+          </div>
+        </div>
+
+        <div id="kts-survey-fields" style="display:none; background:rgba(249,115,22,0.07); border:1px solid rgba(249,115,22,0.22); padding:12px; border-radius:10px;">
+          <div class="form-group"><label class="form-label">Địa chỉ khảo sát <span style="color:#EF4444;">*</span></label><input id="kts-survey-address" class="form-input" value="${isEdit ? (editTask.surveyAddress || lead.address || '') : (lead.address || '')}" placeholder="Địa chỉ thực địa"></div>
+          <div class="form-row">
+            <div class="form-group"><label class="form-label">Người liên hệ tại công trình</label><input id="kts-survey-contact-name" class="form-input" value="${isEdit ? (editTask.surveyContactName || lead.name || '') : (lead.name || '')}"></div>
+            <div class="form-group"><label class="form-label">SĐT liên hệ</label><input id="kts-survey-contact-phone" class="form-input" value="${isEdit ? (editTask.surveyContactPhone || lead.phone || '') : (lead.phone || '')}"></div>
           </div>
         </div>
 
@@ -4657,18 +4677,49 @@ export const UI = {
 
     document.getElementById('btn-cancel-kts-assign')?.addEventListener('click', () => modal.close());
 
+    const taskTypeEl = document.getElementById('kts-assign-task-type');
+    const assigneeEl = document.getElementById('kts-assign-user');
+    const syncAssigneeOptions = () => {
+      const isSurvey = taskTypeEl.value === 'site_survey';
+      const previousValue = assigneeEl.value;
+      const source = isSurvey ? allUsers : ktsUsers;
+      assigneeEl.innerHTML = source.map(u => `<option value="${u.id}">${isSurvey ? '👤' : '📐'} ${u.name} (${roleLabel(u.role)})</option>`).join('') + (isSurvey ? '<option value="__external__">🌐 Người ngoài hệ thống</option>' : '');
+      const preferredValue = isEdit && editTask.assigneeType === 'external' && isSurvey ? '__external__' : (isEdit ? editTask.ktsId : previousValue);
+      if ([...assigneeEl.options].some(o => o.value === preferredValue)) assigneeEl.value = preferredValue;
+      document.getElementById('kts-assignee-label').innerHTML = `${isSurvey ? 'Người đi khảo sát' : 'Chọn KTS / Người Nhận'} <span style="color:#EF4444;">*</span>`;
+      document.getElementById('kts-survey-fields').style.display = isSurvey ? 'block' : 'none';
+      document.getElementById('kts-external-assignee-fields').style.display = isSurvey && assigneeEl.value === '__external__' ? 'block' : 'none';
+      if (!isEdit) {
+        document.getElementById('kts-assign-title').value = isSurvey
+          ? `Khảo sát thực địa ${lead.interestedIn || 'nội thất'} cho ${lead.name}`
+          : `Vẽ 3D phương án ${lead.interestedIn || 'nội thất'} cho ${lead.name}`;
+      }
+    };
+    taskTypeEl?.addEventListener('change', syncAssigneeOptions);
+    assigneeEl?.addEventListener('change', syncAssigneeOptions);
+    syncAssigneeOptions();
+
     document.getElementById('assign-kts-task-form')?.addEventListener('submit', (e) => {
       e.preventDefault();
       try {
-        const ktsId = document.getElementById('kts-assign-user').value;
-        const ktsUser = DB.getUserById(ktsId) || { name: 'Trần Hữu Nhật Long' };
         const taskType = document.getElementById('kts-assign-task-type').value;
+        const selectedAssignee = document.getElementById('kts-assign-user').value;
+        const isSurvey = taskType === 'site_survey';
+        const isExternal = isSurvey && selectedAssignee === '__external__';
+        const externalName = document.getElementById('kts-external-name').value.trim();
+        const ktsId = isExternal ? '' : selectedAssignee;
+        const ktsUser = isExternal ? { name: externalName } : DB.getUserById(ktsId);
         const deadline = document.getElementById('kts-assign-deadline').value;
         const title = document.getElementById('kts-assign-title').value.trim();
         const requirement = document.getElementById('kts-assign-req').value.trim();
 
-        if (!title || !deadline) {
+        if (!title || !deadline || !ktsUser || (isExternal && !externalName)) {
           Toast.error('Vui lòng điền tiêu đề và hạn chót hoàn thành.');
+          return;
+        }
+        const surveyAddress = document.getElementById('kts-survey-address').value.trim();
+        if (isSurvey && !surveyAddress) {
+          Toast.error('Vui lòng nhập địa chỉ khảo sát.');
           return;
         }
 
@@ -4679,6 +4730,15 @@ export const UI = {
           assignerName: isEdit ? editTask.assignerName : user.name,
           ktsId: ktsId,
           ktsName: ktsUser.name,
+          assigneeType: isExternal ? 'external' : 'internal',
+          externalAssigneeName: isExternal ? externalName : '',
+          externalAssigneePhone: isExternal ? document.getElementById('kts-external-phone').value.trim() : '',
+          externalAssigneeUnit: isExternal ? document.getElementById('kts-external-unit').value.trim() : '',
+          responsibleUserId: isExternal ? user.id : ktsId,
+          responsibleUserName: isExternal ? user.name : ktsUser.name,
+          surveyAddress: isSurvey ? surveyAddress : '',
+          surveyContactName: isSurvey ? document.getElementById('kts-survey-contact-name').value.trim() : '',
+          surveyContactPhone: isSurvey ? document.getElementById('kts-survey-contact-phone').value.trim() : '',
           taskType: taskType,
           title: title,
           requirement: requirement,
@@ -4687,7 +4747,7 @@ export const UI = {
 
         if (isEdit) {
           DB.updateKtsTask(editTask.id, taskPayload);
-          DB.addLeadHistory(lead.id, `✏️ Cập nhật việc KTS (${title}) · KTS: ${ktsUser.name} · Hạn: ${fmt.datetime(deadline)}`, user.name);
+          DB.addLeadHistory(lead.id, `✏️ Cập nhật ${isSurvey ? 'việc khảo sát' : 'việc KTS'} (${title}) · Người thực hiện: ${ktsUser.name} · Hạn: ${fmt.datetime(deadline)}`, user.name);
           modal.close();
           Toast.success('Đã cập nhật công việc KTS.');
           if (onSave) onSave();
@@ -4696,10 +4756,10 @@ export const UI = {
 
         DB.addKtsTask(taskPayload);
 
-        DB.addLeadHistory(lead.id, `🚀 Giao việc KTS (${title}) cho ${ktsUser.name} · Hạn: ${fmt.datetime(deadline)}`, user.name);
+        DB.addLeadHistory(lead.id, `${isSurvey ? '📏 Giao việc khảo sát' : '🚀 Giao việc KTS'} (${title}) cho ${ktsUser.name} · Hạn: ${fmt.datetime(deadline)}`, user.name);
 
         modal.close();
-        Toast.success(`🚀 Đã giao việc thành công cho KTS ${ktsUser.name}!`);
+        Toast.success(`🚀 Đã giao việc thành công cho ${ktsUser.name}!`);
 
         const successModal = Modal.create(`🚀 Giao Việc Thành Công!`, `
           <div style="text-align:center; padding:16px 8px;">
@@ -4710,7 +4770,7 @@ export const UI = {
             <div style="background:rgba(255,255,255,0.03); border:1px solid var(--border-color); border-radius:10px; padding:12px; margin-bottom:16px; text-align:left; font-size:0.82rem;">
               <div style="font-weight:700; color:var(--primary); margin-bottom:4px;"><i class="fas fa-tasks"></i> ${title}</div>
               <div style="color:var(--text-secondary); margin-bottom:2px;"><i class="fas fa-building"></i> Lead: <strong>${lead.name}</strong></div>
-              <div style="color:var(--text-secondary); margin-bottom:2px;"><i class="fas fa-user-tag"></i> KTS nhận việc: <strong style="color:#8B5CF6;">${ktsUser.name}</strong></div>
+              <div style="color:var(--text-secondary); margin-bottom:2px;"><i class="fas fa-user-tag"></i> ${isSurvey ? 'Người đi khảo sát' : 'KTS nhận việc'}: <strong style="color:#8B5CF6;">${ktsUser.name}${isExternal ? ' · Ngoài hệ thống' : ''}</strong></div>
               <div style="color:#F59E0B; font-weight:700; margin-top:6px;"><i class="fas fa-clock"></i> Hạn hoàn thành: ${fmt.datetime(deadline)}</div>
             </div>
             <button id="btn-close-assign-success" class="btn-primary" style="padding:10px 28px; font-weight:700; border-radius:10px; background:linear-gradient(135deg, #10B981, #059669); font-size:0.88rem; cursor:pointer;"><i class="fas fa-check-circle"></i> Đã Hiểu</button>
@@ -4733,7 +4793,8 @@ export const UI = {
     const tasks = DB.getKtsTasks(user.id, user.role);
 
     let filtered = tasks;
-    if (filterType === 'fast_support') filtered = tasks.filter(t => t.taskType === 'fast_support');
+    if (filterType === 'site_survey') filtered = tasks.filter(t => t.taskType === 'site_survey');
+    else if (filterType === 'fast_support') filtered = tasks.filter(t => t.taskType === 'fast_support');
     else if (filterType === 'technical_draw') filtered = tasks.filter(t => t.taskType === 'technical_draw');
     else if (filterType === 'cnc_export') filtered = tasks.filter(t => t.taskType === 'cnc_export');
     else if (filterType === 'completed') filtered = tasks.filter(t => t.status === 'completed');
@@ -4752,6 +4813,7 @@ export const UI = {
         <div class="filter-tabs" style="margin-bottom:16px;">
           <button class="tab-btn ${filterType === 'all' ? 'active' : ''}" data-type="all">Tất Cả (${tasks.length})</button>
           <button class="tab-btn ${filterType === 'pending' ? 'active' : ''}" data-type="pending">⏳ Đang Xử Lý (${tasks.filter(t => t.status !== 'completed').length})</button>
+          <button class="tab-btn ${filterType === 'site_survey' ? 'active' : ''}" data-type="site_survey">📏 Khảo Sát Thực Địa (${tasks.filter(t => t.taskType === 'site_survey').length})</button>
           <button class="tab-btn ${filterType === 'fast_support' ? 'active' : ''}" data-type="fast_support">⚡ Vẽ Phản Ứng Nhanh (${tasks.filter(t => t.taskType === 'fast_support').length})</button>
           <button class="tab-btn ${filterType === 'technical_draw' ? 'active' : ''}" data-type="technical_draw">📐 Kết Cấu Chi Tiết (${tasks.filter(t => t.taskType === 'technical_draw').length})</button>
           <button class="tab-btn ${filterType === 'cnc_export' ? 'active' : ''}" data-type="cnc_export">🖨️ Xuất File CNC (${tasks.filter(t => t.taskType === 'cnc_export').length})</button>
@@ -4771,6 +4833,7 @@ export const UI = {
               const cd = getKtsCountdownInfo(t.deadline);
               const isCompleted = t.status === 'completed';
               const typeMap = {
+                site_survey: { label: '📏 Đi Đo Khảo Sát Thực Địa', color: '#F97316' },
                 fast_support: { label: '⚡ Vẽ Phản Ứng Nhanh', color: '#8B5CF6' },
                 technical_draw: { label: '📐 Vẽ Kết Cấu Chi Tiết', color: '#3B82F6' },
                 cnc_export: { label: '🖨️ Xuất File CNC', color: '#10B981' }
@@ -4786,7 +4849,7 @@ export const UI = {
                         ${tInfo.label}
                       </span>
                       <span style="font-size:0.68rem; font-weight:800; padding:3px 8px; border-radius:6px; background:${isCompleted ? 'rgba(16,185,129,0.15)' : 'rgba(245,158,11,0.15)'}; color:${isCompleted ? '#10B981' : '#F59E0B'};">
-                        ${isCompleted ? '✅ ĐÃ HOÀN THÀNH' : (t.status === 'in_progress' ? '🔵 ĐANG THỰC HIỆN' : '🟡 CHỜ KTS')}
+                        ${isCompleted ? '✅ ĐÃ HOÀN THÀNH' : (t.status === 'in_progress' ? '🔵 ĐANG THỰC HIỆN' : (t.taskType === 'site_survey' ? '🟡 CHỜ KHẢO SÁT' : '🟡 CHỜ KTS'))}
                       </span>
                     </div>
 
@@ -4797,6 +4860,10 @@ export const UI = {
                     <div style="font-size:0.75rem; color:var(--primary); font-weight:700; margin-bottom:8px;">
                       <i class="fas fa-building"></i> ${t.leadName || 'Dự án'}
                     </div>
+                    <div style="font-size:0.73rem; color:var(--text-secondary); margin-bottom:8px;">
+                      <i class="fas fa-user-check"></i> ${t.taskType === 'site_survey' ? 'Người khảo sát' : 'KTS nhận'}: <strong>${t.ktsName || 'Chưa chỉ định'}</strong>${t.assigneeType === 'external' ? ' <span style="color:#F59E0B;">· Ngoài hệ thống</span>' : ''}
+                    </div>
+                    ${t.taskType === 'site_survey' && t.surveyAddress ? `<div style="font-size:0.72rem; color:var(--text-muted); margin-bottom:8px;"><i class="fas fa-map-marker-alt" style="color:#F97316;"></i> ${t.surveyAddress}</div>` : ''}
 
                     <!-- Countdown Box -->
                     <div style="background:${isCompleted ? 'rgba(16,185,129,0.08)' : (cd.isOverdue ? 'rgba(239,68,68,0.1)' : 'rgba(255,255,255,0.04)')}; border:1px solid ${isCompleted ? 'rgba(16,185,129,0.3)' : (cd.isOverdue ? 'rgba(239,68,68,0.3)' : 'var(--border-color)')}; padding:8px 10px; border-radius:8px; margin-bottom:10px; font-size:0.75rem; font-weight:800; color:${isCompleted ? '#10B981' : cd.color}; display:flex; align-items:center; justify-content:space-between; gap:8px; flex-wrap:wrap;">
@@ -4910,27 +4977,28 @@ export const UI = {
   },
 
   openCompleteKtsTaskModal(task, user, onSave = null) {
+    const isSurvey = task.taskType === 'site_survey';
     const html = `
       <form id="complete-kts-task-form" style="display:flex; flex-direction:column; gap:14px;">
         <div style="background:rgba(16,185,129,0.1); border:1px solid rgba(16,185,129,0.3); padding:10px 14px; border-radius:10px; font-size:0.82rem;">
-          <div style="font-weight:700; color:#10B981;"><i class="fas fa-check-circle"></i> Bàn Giao Hoàn Thành: ${task.title}</div>
+          <div style="font-weight:700; color:#10B981;"><i class="fas fa-check-circle"></i> ${isSurvey ? 'Hoàn Tất Khảo Sát' : 'Bàn Giao Hoàn Thành'}: ${task.title}</div>
           <div style="color:var(--text-secondary); font-size:0.75rem; margin-top:2px;">Lead: ${task.leadName} · Người giao: ${task.assignerName}</div>
         </div>
 
         <div class="form-group">
-          <label class="form-label">Ghi Chú Kết Quả / Khối Lượng Hoàn Thành</label>
-          <input type="text" id="kts-complete-note" class="form-input" placeholder="Ví dụ: Đã xong 3D phối màu gỗ, 14 tấm ván 17mm..." value="Đã hoàn thành ${task.title}" required>
+          <label class="form-label">${isSurvey ? 'Kết Quả Khảo Sát / Số Đo Chính' : 'Ghi Chú Kết Quả / Khối Lượng Hoàn Thành'}</label>
+          <input type="text" id="kts-complete-note" class="form-input" placeholder="${isSurvey ? 'Ví dụ: Đã đo hiện trạng, trần cao 2,8m; vị trí điện nước...' : 'Ví dụ: Đã xong 3D phối màu gỗ, 14 tấm ván 17mm...'}" value="Đã hoàn thành ${task.title}" required>
         </div>
 
         <div class="form-group">
-          <label class="form-label">Link File Dự Án (Drive / Zalo / Dropbox)</label>
+          <label class="form-label">${isSurvey ? 'Link Hồ Sơ / Album Ảnh Khảo Sát' : 'Link File Dự Án (Drive / Zalo / Dropbox)'}</label>
           <input type="url" id="kts-complete-link" class="form-input" placeholder="https://drive.google.com/...">
         </div>
 
         <div class="form-group">
-          <label class="form-label">Đính Kèm Ảnh Bản Vẽ / 3D Render</label>
+          <label class="form-label">${isSurvey ? 'Đính Kèm Ảnh Hiện Trạng' : 'Đính Kèm Ảnh Bản Vẽ / 3D Render'}</label>
           <div style="display:flex; align-items:center; gap:10px;">
-            <button type="button" class="btn-secondary" id="btn-upload-kts-complete-photo" style="font-size:0.8rem;"><i class="fas fa-camera"></i> Tải Ảnh Vẽ</button>
+            <button type="button" class="btn-secondary" id="btn-upload-kts-complete-photo" style="font-size:0.8rem;"><i class="fas fa-camera"></i> ${isSurvey ? 'Tải Ảnh Hiện Trạng' : 'Tải Ảnh Vẽ'}</button>
             <input type="file" id="kts-complete-photo-file" accept="image/*" style="display:none;">
             <div id="kts-complete-photo-preview" style="font-size:0.75rem; color:var(--text-muted);">Chưa chọn ảnh</div>
           </div>
@@ -4990,7 +5058,9 @@ export const UI = {
         userName: user.name
       });
 
-      Toast.success('Đã hoàn thành công việc và tự động cập nhật Báo Cáo KTS!');
+      DB.addLeadHistory(task.leadId, `${isSurvey ? '📏 Hoàn thành khảo sát' : '✅ Hoàn thành việc KTS'} (${task.title}) · Người thực hiện: ${task.ktsName || user.name}`, user.name);
+
+      Toast.success(isSurvey ? 'Đã hoàn thành khảo sát và lưu kết quả vào Lead!' : 'Đã hoàn thành công việc và tự động cập nhật Báo Cáo KTS!');
       modal.close();
       if (onSave) onSave();
     });
@@ -5001,6 +5071,7 @@ export const UI = {
     const freshTask = DB.getKtsTasks().find(t => t.id === task.id) || task;
 
     const typeMap = {
+      site_survey: { label: '📏 Đi Đo Khảo Sát Thực Địa', color: '#F97316' },
       fast_support: { label: '⚡ Vẽ Phản Ứng Nhanh Hỗ Trợ Sale', color: '#8B5CF6' },
       technical_draw: { label: '📐 Vẽ Kết Cấu Chi Tiết', color: '#3B82F6' },
       cnc_export: { label: '🖨️ Xuất File CNC', color: '#10B981' }
@@ -5013,6 +5084,7 @@ export const UI = {
     const assignedTime = freshTask.createdAt ? fmt.datetime(freshTask.createdAt) : 'Chưa ghi nhận';
     const assignerName = freshTask.assignerName || 'Sale / Admin';
     const ktsName = freshTask.ktsName || 'Trần Hữu Nhật Long';
+    const isSurvey = freshTask.taskType === 'site_survey';
 
     // Resolve exact startedTime timestamp
     let startedTimeFormatted = null;
@@ -5039,7 +5111,7 @@ export const UI = {
               ${tInfo.label}
             </span>
             <span style="font-size:0.72rem; font-weight:800; padding:4px 10px; border-radius:6px; background:${isCompleted ? 'rgba(16,185,129,0.15)' : (freshTask.status === 'in_progress' ? 'rgba(59,130,246,0.15)' : 'rgba(245,158,11,0.15)')}; color:${isCompleted ? '#10B981' : (freshTask.status === 'in_progress' ? '#3B82F6' : '#F59E0B')};">
-              ${isCompleted ? '✅ ĐÃ HOÀN THÀNH' : (freshTask.status === 'in_progress' ? '🔵 ĐANG THỰC HIỆN' : '🟡 CHỜ KTS')}
+              ${isCompleted ? '✅ ĐÃ HOÀN THÀNH' : (freshTask.status === 'in_progress' ? '🔵 ĐANG THỰC HIỆN' : (isSurvey ? '🟡 CHỜ KHẢO SÁT' : '🟡 CHỜ KTS'))}
             </span>
           </div>
 
@@ -5050,8 +5122,14 @@ export const UI = {
           <div style="display:flex; flex-wrap:wrap; gap:14px; font-size:0.8rem; color:var(--text-secondary); margin-bottom:10px;">
             <div><i class="fas fa-building" style="color:var(--primary);"></i> Dự án: <strong style="color:var(--text-primary);">${freshTask.leadName || 'Dự án'}</strong></div>
             <div><i class="fas fa-user-tie" style="color:#8B5CF6;"></i> Người giao: <strong>${assignerName}</strong></div>
-            <div><i class="fas fa-user-ninja" style="color:#3B82F6;"></i> KTS nhận: <strong>${ktsName}</strong></div>
+            <div><i class="fas fa-user-ninja" style="color:#3B82F6;"></i> ${isSurvey ? 'Người khảo sát' : 'KTS nhận'}: <strong>${ktsName}</strong>${freshTask.assigneeType === 'external' ? ' · <span style="color:#F59E0B;">Ngoài hệ thống</span>' : ''}</div>
           </div>
+
+          ${isSurvey ? `<div style="font-size:0.78rem; color:var(--text-secondary); background:rgba(249,115,22,0.07); border:1px solid rgba(249,115,22,0.2); padding:10px 12px; border-radius:8px;">
+            <div><i class="fas fa-map-marker-alt" style="color:#F97316;"></i> <strong>Địa chỉ:</strong> ${freshTask.surveyAddress || 'Chưa cập nhật'}</div>
+            ${(freshTask.surveyContactName || freshTask.surveyContactPhone) ? `<div style="margin-top:4px;"><i class="fas fa-address-book"></i> <strong>Liên hệ:</strong> ${freshTask.surveyContactName || ''} ${freshTask.surveyContactPhone ? `· ${freshTask.surveyContactPhone}` : ''}</div>` : ''}
+            ${freshTask.assigneeType === 'external' ? `<div style="margin-top:4px;"><i class="fas fa-shield-alt"></i> <strong>Người nội bộ cập nhật:</strong> ${freshTask.responsibleUserName || assignerName}</div>` : ''}
+          </div>` : ''}
 
           ${freshTask.requirement ? `
             <div style="font-size:0.8rem; color:var(--text-primary); background:rgba(0,0,0,0.15); border:1px solid rgba(255,255,255,0.06); padding:10px 12px; border-radius:8px; margin-top:8px;">
@@ -5085,7 +5163,7 @@ export const UI = {
                 <span style="font-size:0.72rem; color:#8B5CF6; font-weight:700;">${assignedTime}</span>
               </div>
               <div style="font-size:0.78rem; color:var(--text-secondary); margin-top:2px;">
-                Đã được giao bởi <strong>${assignerName}</strong> cho KTS <strong>${ktsName}</strong>.
+                Đã được giao bởi <strong>${assignerName}</strong> cho ${isSurvey ? 'người khảo sát' : 'KTS'} <strong>${ktsName}</strong>.
               </div>
             </div>
 
@@ -5097,7 +5175,7 @@ export const UI = {
                 <span style="font-size:0.72rem; color:${startedTimeFormatted ? '#3B82F6' : '#64748B'}; font-weight:700;">${startedTimeFormatted || 'Chưa tiếp nhận'}</span>
               </div>
               <div style="font-size:0.78rem; color:${startedTimeFormatted ? 'var(--text-secondary)' : 'var(--text-muted)'}; margin-top:2px;">
-                ${startedTimeFormatted ? `KTS <strong>${ktsName}</strong> đã bấm bắt đầu làm lúc <strong>${startedTimeFormatted}</strong>.` : '⏳ KTS chưa bấm nút Bắt đầu nhận công việc.'}
+                ${startedTimeFormatted ? `${isSurvey ? 'Người phụ trách' : 'KTS'} <strong>${ktsName}</strong> đã bấm bắt đầu lúc <strong>${startedTimeFormatted}</strong>.` : `⏳ ${isSurvey ? 'Người phụ trách' : 'KTS'} chưa bấm nút Bắt đầu nhận công việc.`}
               </div>
             </div>
 
@@ -5109,7 +5187,7 @@ export const UI = {
                 <span style="font-size:0.72rem; color:${completedTime ? '#10B981' : '#64748B'}; font-weight:700;">${completedTime || 'Chưa hoàn thành'}</span>
               </div>
               <div style="font-size:0.78rem; color:${completedTime ? 'var(--text-secondary)' : 'var(--text-muted)'}; margin-top:2px;">
-                ${completedTime ? `KTS <strong>${ktsName}</strong> đã hoàn thành công việc.` : '⏳ Công việc chưa hoàn thành.'}
+                ${completedTime ? `${isSurvey ? 'Người phụ trách' : 'KTS'} <strong>${ktsName}</strong> đã hoàn thành công việc.` : '⏳ Công việc chưa hoàn thành.'}
               </div>
               ${freshTask.resultNote ? `
                 <div style="font-size:0.75rem; color:#10B981; background:rgba(16,185,129,0.08); border:1px solid rgba(16,185,129,0.2); padding:8px 10px; border-radius:6px; margin-top:6px;">
@@ -5179,6 +5257,7 @@ export const UI = {
     const tasks = DB.getKtsTasks(user.id, user.role).filter(t => t.taskType === taskType && t.status !== 'completed');
 
     const titleMap = {
+      site_survey: '📏 Chi Tiết Task: Đi Đo Khảo Sát Thực Địa',
       fast_support: '⚡ Chi Tiết Task: Vẽ Phản Ứng Nhanh Hỗ Trợ Sale',
       technical_draw: '📐 Chi Tiết Task: Vẽ Kết Cấu Chi Tiết',
       cnc_export: '🖨️ Chi Tiết Task: Xuất File CNC'

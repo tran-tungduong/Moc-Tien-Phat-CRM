@@ -216,7 +216,16 @@ CREATE TABLE public.kts_tasks (
     assigner_name TEXT,
     kts_id TEXT REFERENCES public.users(id) ON DELETE SET NULL,
     kts_name TEXT,
-    task_type TEXT NOT NULL, -- fast_support, technical_draw, cnc_export
+    assignee_type TEXT DEFAULT 'internal', -- internal, external
+    external_assignee_name TEXT,
+    external_assignee_phone TEXT,
+    external_assignee_unit TEXT,
+    responsible_user_id TEXT REFERENCES public.users(id) ON DELETE SET NULL,
+    responsible_user_name TEXT,
+    survey_address TEXT,
+    survey_contact_name TEXT,
+    survey_contact_phone TEXT,
+    task_type TEXT NOT NULL, -- site_survey, fast_support, technical_draw, cnc_export
     title TEXT NOT NULL,
     requirement TEXT,
     status TEXT DEFAULT 'pending', -- pending, in_progress, completed
@@ -269,6 +278,7 @@ CREATE INDEX idx_campaign_logs_camp ON public.campaign_daily_logs(campaign_id);
 CREATE INDEX idx_appointments_assigned ON public.appointments(assigned_to);
 CREATE INDEX idx_kts_tasks_status_deadline ON public.kts_tasks(status, deadline);
 CREATE INDEX idx_kts_tasks_kts ON public.kts_tasks(kts_id);
+CREATE INDEX idx_kts_tasks_responsible ON public.kts_tasks(responsible_user_id);
 CREATE INDEX idx_kts_logs_user_date ON public.kts_logs(user_id, date);
 CREATE INDEX idx_notifications_user_status ON public.notifications(user_id, status);
 
@@ -406,6 +416,11 @@ SELECT
     t.completed_at,
     t.kts_id,
     t.kts_name,
+    t.assignee_type,
+    t.external_assignee_name,
+    t.responsible_user_id,
+    t.responsible_user_name,
+    t.survey_address,
     t.assigner_id,
     t.assigner_name,
     ROUND(EXTRACT(EPOCH FROM (COALESCE(t.completed_at, NOW()) - t.created_at)) / 3600.0, 2) AS elapsed_hours,
