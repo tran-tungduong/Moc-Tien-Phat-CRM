@@ -1378,6 +1378,31 @@ export const DB = {
     this.save(db);
   },
 
+  deleteNotification(id, user = null) {
+    if (!user) user = this.getCurrentUser();
+    const db = this.load();
+    const notif = (db.notifications || []).find(n => n.id === id);
+    if (!notif || !user || (user.role !== 'manager' && notif.userId !== user.id)) return false;
+    db.notifications = db.notifications.filter(n => n.id !== id);
+    this.save(db);
+    this._delete('notifications', id);
+    return true;
+  },
+
+  deleteReadNotifications(user = null) {
+    if (!user) user = this.getCurrentUser();
+    if (!user) return 0;
+    const db = this.load();
+    const visibleIds = new Set(this.getNotifications('all', user).filter(n => n.status === 'read').map(n => n.id));
+    const deletable = (db.notifications || []).filter(n => visibleIds.has(n.id) && (user.role === 'manager' || n.userId === user.id));
+    if (deletable.length === 0) return 0;
+    const ids = new Set(deletable.map(n => n.id));
+    db.notifications = db.notifications.filter(n => !ids.has(n.id));
+    this.save(db);
+    deletable.forEach(n => this._delete('notifications', n.id));
+    return deletable.length;
+  },
+
   // ── Campaigns ─────────────────────────────────────────
   getCampaigns() {
     const db = this.load();

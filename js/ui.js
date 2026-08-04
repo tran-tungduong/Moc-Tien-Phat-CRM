@@ -1519,7 +1519,10 @@ export const UI = {
       <div style="display:flex; flex-direction:column; gap:12px;">
         <div style="display:flex; justify-content:space-between; align-items:center;">
           <span style="font-size:0.75rem; color:var(--text-muted);">Có ${unread.length} thông báo chưa đọc</span>
-          ${unread.length > 0 ? `<button id="notif-modal-read-all" style="background:rgba(16,185,129,0.15); border:1px solid rgba(16,185,129,0.3); color:#10B981; font-size:0.72rem; font-weight:700; padding:4px 10px; border-radius:6px; cursor:pointer;"><i class="fas fa-check-double"></i> Đã đọc tất cả</button>` : ''}
+          <div style="display:flex; gap:6px; flex-wrap:wrap; justify-content:flex-end;">
+            ${notifs.some(n => n.status === 'read' && (user.role === 'manager' || n.userId === user.id)) ? `<button id="notif-modal-clear-read" style="background:rgba(239,68,68,0.1); border:1px solid rgba(239,68,68,0.25); color:#EF4444; font-size:0.72rem; font-weight:700; padding:4px 10px; border-radius:6px; cursor:pointer;"><i class="fas fa-broom"></i> Xóa đã đọc</button>` : ''}
+            ${unread.length > 0 ? `<button id="notif-modal-read-all" style="background:rgba(16,185,129,0.15); border:1px solid rgba(16,185,129,0.3); color:#10B981; font-size:0.72rem; font-weight:700; padding:4px 10px; border-radius:6px; cursor:pointer;"><i class="fas fa-check-double"></i> Đã đọc tất cả</button>` : ''}
+          </div>
         </div>
         <div style="display:flex; flex-direction:column; gap:8px; max-height:60vh; overflow-y:auto; padding-right:4px;">
           ${notifs.length === 0 ? `<div class="empty-state" style="padding:20px; text-align:center;"><i class="fas fa-bell-slash" style="font-size:2rem; color:var(--text-muted);"></i><p style="margin-top:6px; font-size:0.8rem; color:var(--text-secondary);">Chưa có thông báo nào.</p></div>` :
@@ -1552,7 +1555,10 @@ export const UI = {
                         </div>
                       ` : ''}
                     </div>
-                    ${n.status === 'unread' ? `<button class="notif-item-read-btn" data-id="${n.id}" style="background:rgba(16,185,129,0.2); border:1px solid rgba(16,185,129,0.4); color:#10B981; padding:4px 8px; border-radius:6px; font-size:0.7rem; font-weight:700; cursor:pointer;"><i class="fas fa-check"></i> Đã đọc</button>` : ''}
+                    <div style="display:flex; gap:5px; align-items:center; flex-shrink:0;">
+                      ${n.status === 'unread' ? `<button class="notif-item-read-btn" data-id="${n.id}" style="background:rgba(16,185,129,0.2); border:1px solid rgba(16,185,129,0.4); color:#10B981; padding:4px 8px; border-radius:6px; font-size:0.7rem; font-weight:700; cursor:pointer;"><i class="fas fa-check"></i> Đã đọc</button>` : ''}
+                      ${(user.role === 'manager' || n.userId === user.id) ? `<button class="notif-item-delete-btn" data-id="${n.id}" title="Xóa thông báo" style="background:rgba(239,68,68,0.1); border:1px solid rgba(239,68,68,0.25); color:#EF4444; width:28px; height:28px; border-radius:6px; cursor:pointer;"><i class="fas fa-trash"></i></button>` : ''}
+                    </div>
                   </div>
                 </div>
               `;
@@ -1571,10 +1577,27 @@ export const UI = {
       this.refreshHeaderNotif(user);
     });
 
+    document.getElementById('notif-modal-clear-read')?.addEventListener('click', () => {
+      const count = DB.deleteReadNotifications(user);
+      Toast.success(`Đã xóa ${count} thông báo đã đọc.`);
+      modal.close();
+      this.openNotificationsModal(user);
+      this.refreshHeaderNotif(user);
+    });
+
     modal.element.querySelectorAll('.notif-item-read-btn').forEach(btn => {
       btn.addEventListener('click', () => {
         const id = btn.getAttribute('data-id');
         DB.markNotificationRead(id);
+        modal.close();
+        this.openNotificationsModal(user);
+        this.refreshHeaderNotif(user);
+      });
+    });
+
+    modal.element.querySelectorAll('.notif-item-delete-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        if (DB.deleteNotification(btn.getAttribute('data-id'), user)) Toast.success('Đã xóa thông báo.');
         modal.close();
         this.openNotificationsModal(user);
         this.refreshHeaderNotif(user);
